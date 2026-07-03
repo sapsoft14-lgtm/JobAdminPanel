@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Control Center - SAP</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f1f5f9; margin: 0; padding: 20px; color: #1e293b; }
+        
+        /* Multi-platform Responsive Grid Matrix */
+        .dashboard-container { max-width: 1700px; margin: 0 auto; display: grid; grid-template-columns: 440px 1fr; gap: 25px; align-items: start; }
+        
+        @media (max-width: 1400px) {
+            .dashboard-container { grid-template-columns: 380px 1fr; gap: 20px; }
+        }
+        
+        @media (max-width: 1100px) {
+            body { padding: 12px; }
+            .dashboard-container { grid-template-columns: 1fr; gap: 20px; }
+        }
+
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.04); border: 1px solid #e2e8f0; margin-bottom: 20px; }
+        h2 { margin-top: 0; color: #1e3a8a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 17px; }
+        .form-group { display: flex; flex-direction: column; margin-bottom: 12px; position: relative; }
+        label { font-size: 11px; font-weight: 700; margin-bottom: 4px; color: #475569; text-transform: uppercase; }
+        input, select, textarea { padding: 9px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; background-color: #f8fafc; width: 100%; box-sizing: border-box; }
+        
+        /* Flex rows fallback to block stack on small mobile frames */
+        .row { display: flex; gap: 12px; } 
+        .row .form-group { flex: 1; }
+        @media (max-width: 480px) {
+            .row { flex-direction: column; gap: 0; }
+        }
+        
+        .inline-search-group { display: flex; gap: 8px; }
+        .btn-search { background-color: #1e3a8a; color: white; border: none; padding: 0 14px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px; white-space: nowrap; }
+        .btn-search:hover { background-color: #1e40af; }
+        
+        .btn-blue { background-color: #059669; color: white; padding: 11px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 5px; transition: opacity .15s; }
+        .btn-orange { background-color: #ea580c; color: white; padding: 11px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; }
+
+        /* Register Ticket - loading/generating animation */
+        .btn-blue:disabled { opacity: 0.75; cursor: not-allowed; }
+        .btn-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.45); border-top-color: #ffffff; border-radius: 50%; vertical-align: middle; margin-right: 8px; animation: btnSpin 0.7s linear infinite; }
+        @keyframes btnSpin { to { transform: rotate(360deg); } }
+        
+        /* Fluid Metrics Grid Engine */
+        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
+        @media (max-width: 650px) { 
+            .metrics-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; } 
+        }
+        .metric-card { color: white; padding: 12px; border-radius: 8px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .metric-title { font-size: 11px; text-transform: uppercase; font-weight: 600; opacity: 0.9; }
+        .metric-value { font-size: 22px; font-weight: bold; margin-top: 2px; }
+        
+        /* Upgraded Control Bar Auto-Layout Fluid Grid */
+        .controls-bar { background: #fff; padding: 15px; border-radius: 8px 8px 0 0; border: 1px solid #e2e8f0; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; align-items: center; }
+        @media (max-width: 768px) {
+            .controls-bar { grid-template-columns: 1fr; padding: 12px; }
+        }
+        
+        /* Scroll Safety Layer for Legacy HTML Tables on Handheld viewports */
+        .table-responsive-wrapper { width: 100%; overflow-x: auto; background: white; border: 1px solid #e2e8f0; border-radius: 0 0 8px 8px; -webkit-overflow-scrolling: touch; }
+        .pipeline-table { width: 100%; border-collapse: collapse; min-width: 750px; font-size: 13px; }
+        .pipeline-table th { background: #f8fafc; border-bottom: 2px solid #e2e8f0; text-align: left; padding: 12px; }
+        .pipeline-table td { padding: 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+        
+        /* Status Tags Styling Matrix */
+        .status-tag { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; color: white; display: inline-block; white-space: nowrap; }
+        .status-Pending { background: #ea580c; } 
+        .status-Ongoing { background: #2563eb; } 
+        .status-WarrantyPending { background: #6366f1; } 
+        .status-Completed { background: #059669; } 
+        .status-Returned { background: #b91c1c; } 
+        .status-CantRepair { background: #ef476f; }
+        .status-WarrantyClaimed { background: #7c3aed; }
+
+        /* Toggle Switch styling for Handover Options */
+        .switch-container { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: bold; color: #475569; margin-top: 6px; }
+        .switch { position: relative; display: inline-block; width: 34px; height: 20px; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .3s; border-radius: 20px; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
+        input:checked + .slider { background-color: #059669; }
+        input:checked + .slider:before { transform: translateX(14px); }
+
+        .history-link { color: #2563eb; font-weight: bold; text-decoration: none; font-size: 11px; cursor: pointer; display: inline-block; margin-top: 6px; }
+        .history-inline-panel { display: none; background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #cbd5e1; margin-top: 10px; box-shadow: inset 0 2px 5px rgba(0,0,0,0.05); }
+        .admin-timeline-node { border-bottom: 1px dashed #cbd5e1; padding-bottom: 8px; margin-bottom: 8px; }
+        .admin-timeline-node:last-child { border: none; margin: 0; padding: 0; }
+        .admin-thumb { width: 50px; height: 50px; object-fit: cover; border-radius: 4px; margin: 5px 5px 0 0; cursor: pointer; border: 1px solid #cbd5e1; background-color: #000; }
+        
+        .lightbox-modal { display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); align-items: center; justify-content: center; }
+        .lightbox-content { max-width: 80%; max-height: 80%; border-radius: 6px; }
+        .lightbox-close { position: absolute; top: 20px; right: 30px; color: white; font-size: 35px; font-weight: bold; cursor: pointer; }
+        .alert-toast { font-size: 11px; font-weight: bold; margin-top: 4px; display: none; }
+        
+        /* Registration Success Message Banner Styling */
+        .success-banner { background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; padding: 12px; border-radius: 6px; font-size: 13px; font-weight: bold; margin-bottom: 15px; display: none; text-align: center; }
+
+        /* Next Job Number Preview Badge */
+        .next-job-badge { display: flex; align-items: center; gap: 10px; background: linear-gradient(135deg, #1e3a8a, #2563eb); color: white; padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; box-shadow: 0 2px 8px rgba(37,99,235,0.25); }
+        .next-job-badge .badge-label { font-size: 10px; font-weight: 700; text-transform: uppercase; opacity: 0.85; letter-spacing: 0.5px; }
+        .next-job-badge .badge-number { font-size: 22px; font-weight: 800; letter-spacing: 1px; }
+        .next-job-badge .badge-icon { font-size: 20px; opacity: 0.9; }
+
+        /* Autocomplete Suggestion Dropdown */
+        .suggest-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #cbd5e1; border-radius: 0 0 6px 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 999; max-height: 180px; overflow-y: auto; display: none; }
+        .suggest-item { padding: 8px 10px; font-size: 13px; cursor: pointer; border-bottom: 1px solid #f1f5f9; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .suggest-item:last-child { border-bottom: none; }
+        .suggest-item:hover, .suggest-item.active { background: #eff6ff; color: #1e3a8a; }
+        .suggest-item strong { color: #1e3a8a; }
+
+        /* Date Range Filter Row */
+        .date-filter-bar { background: #fff; padding: 10px 15px; border: 1px solid #e2e8f0; border-top: none; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+        .date-filter-bar label { font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; white-space: nowrap; margin: 0; }
+        .date-filter-bar input[type="date"] { padding: 7px 9px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background-color: #f8fafc; width: auto; }
+        .btn-reset-filters { background: #dc2626; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; white-space: nowrap; display: flex; align-items: center; gap: 5px; margin-left: auto; }
+        .btn-reset-filters:hover { background: #b91c1c; }
+        .date-active-badge { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; border-radius: 4px; font-size: 11px; font-weight: bold; padding: 3px 8px; display: none; }
+        .btn-report { background: #1e3a8a; }
+        .btn-report:hover { background: #1e40af; }
+
+        /* ── Login Gate ─────────────────────────────────────────────────── */
+        .login-gate { position: fixed; inset: 0; background: linear-gradient(135deg, #1e3a8a, #0f172a); display: flex; align-items: center; justify-content: center; z-index: 20000; }
+        .login-box { background: white; padding: 32px 28px; border-radius: 12px; width: 320px; max-width: 88vw; box-shadow: 0 15px 45px rgba(0,0,0,0.35); }
+        .login-box h2 { text-align: center; margin-top: 0; margin-bottom: 18px; }
+        .login-error { color: #b91c1c; font-size: 12px; font-weight: bold; margin-top: 10px; text-align: center; display: none; }
+        .login-hint { font-size: 11px; color: #94a3b8; text-align: center; margin-top: 12px; }
+
+        /* ── Session Bar ────────────────────────────────────────────────── */
+        .session-bar { display: flex; justify-content: space-between; align-items: center; background: white; padding: 10px 16px; border-radius: 8px; margin: 0 auto 16px auto; max-width: 1700px; border: 1px solid #e2e8f0; font-size: 13px; font-weight: 600; }
+        .btn-logout { background: #dc2626; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; }
+        .btn-logout:hover { background: #b91c1c; }
+    </style>
+</head>
+<body>
+
+<!-- ── Login Gate (blocks access until valid technician/admin login) ──── -->
+<div id="loginGate" class="login-gate">
+    <div class="login-box">
+        <h2>🔒 SAP Admin Access</h2>
+        <form id="loginForm">
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="loginUsername" required="" autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="loginPassword" required="" autocomplete="off">
+            </div>
+            <button type="submit" id="loginSubmitBtn" class="btn-blue">Login</button>
+            <div class="login-error" id="loginError">Invalid username or password.</div>
+        </form>
+        <div class="login-hint">Use your Technicians sheet credentials to sign in.</div>
+    </div>
+</div>
+
+<div class="session-bar" id="sessionBar" style="display:none;">
+    <span>👤 Logged in as <strong id="loggedInTechName">—</strong></span>
+    <button class="btn-logout" onclick="logoutAdmin()">Logout</button>
+</div>
+
+<div class="dashboard-container">
+    <div>
+        <div class="card">
+            <h2>📝 Job Registry</h2>
+            <div class="next-job-badge">
+                <span class="badge-icon">🎫</span>
+                <div>
+                    <div class="badge-label">Next Job Number</div>
+                    <div class="badge-number" id="nextJobNumPreview">—</div>
+                </div>
+            </div>
+            <div id="registrationSuccessMessage" class="success-banner">
+                🎉 Job registered successfully! &nbsp;
+                <button type="button" id="printJobCardBtn" onclick="printJobCard()" style="background:#1e3a8a; color:white; border:none; padding:6px 12px; border-radius:5px; font-weight:bold; cursor:pointer; font-size:12px; margin-left:6px;">🖨️ Print Job Card</button>
+            </div>
+            
+            <form id="registrationForm">
+                <div class="form-group">
+                    <label>Mobile Number</label>
+                    <div class="inline-search-group">
+                        <input type="text" id="mobile" placeholder="Enter phone..." required="" autocomplete="off" oninput="triggerSuggestion('mobile', this.value)">
+                        <button type="button" class="btn-search" onclick="lookupReturningCustomer()">🔍 Check Customer</button>
+                    </div>
+                    <div class="suggest-dropdown" id="suggest-mobile"></div>
+                    <div id="lookupAlert" class="alert-toast"></div>
+                </div>
+                <div class="form-group" style="position:relative;">
+                    <label>Client Name</label>
+                    <input type="text" id="customerName" required="" autocomplete="off" oninput="triggerSuggestion('customerName', this.value)">
+                    <div class="suggest-dropdown" id="suggest-customerName"></div>
+                </div>
+                <div class="row">
+                    <div class="form-group">
+                        <label>Category</label>
+                        <select id="itemType">
+                            <option value="Computer">Computer</option>
+                            <option value="Laptop">Laptop</option>
+                            <option value="Printer">Printer</option>
+                            <option value="CCTV Camera">CCTV Camera</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="position:relative;">
+                        <label>Model / Brand</label>
+                        <input type="text" id="model" placeholder="e.g. HP Laptop 15s" required="" autocomplete="off" oninput="triggerSuggestion('model', this.value)">
+                        <div class="suggest-dropdown" id="suggest-model"></div>
+                    </div>
+                </div>
+                <div class="form-group" style="position:relative;">
+                    <label>Serial Number</label>
+                    <input type="text" id="serial" placeholder="e.g. 5CD1234XYZ" autocomplete="off" oninput="triggerSuggestion('serial', this.value)">
+                    <div class="suggest-dropdown" id="suggest-serial"></div>
+                </div>
+                <div class="form-group" style="position:relative;">
+                    <label>Fault</label>
+                    <textarea id="fault" rows="2" required="" autocomplete="off" oninput="triggerSuggestion('fault', this.value)"></textarea>
+                    <div class="suggest-dropdown" id="suggest-fault"></div>
+                </div>
+                <div class="form-group">
+                    <label>Repair Estimate Range (Rs.) <span style="font-weight:400; color:#94a3b8;">— optional</span></label>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <input type="number" id="estimatePriceMin" placeholder="Min e.g. 3000" min="0" step="0.01" autocomplete="off" oninput="syncEstimateRangeHint()" style="flex:1;">
+                        <span style="color:#94a3b8; font-weight:bold;">–</span>
+                        <input type="number" id="estimatePriceMax" placeholder="Max e.g. 5000" min="0" step="0.01" autocomplete="off" oninput="syncEstimateRangeHint()" style="flex:1;">
+                    </div>
+                    <div id="estimateRangeHint" style="font-size:11px; color:#7c3aed; font-weight:700; margin-top:4px;"></div>
+                </div>
+                <div class="row">
+                    <div class="form-group"><label>Workshop</label><select id="workshop"><option value="">Select Workshop Location</option><option value="SAP -  Shop 14">SAP -  Shop 14</option><option value="kalagedihen prj">kalagedihen prj</option><option value="Mr. Gayan - Kadawatha">Mr. Gayan - Kadawatha</option><option value="SAP - Shop 68">SAP - Shop 68</option><option value="SAP CCTV Shop Gampaha">SAP CCTV Shop Gampaha</option><option value="Smart Technology">Smart Technology</option><option value="Ishika - Udigampola">Ishika - Udigampola</option></select></div>
+                    <div class="form-group"><label>Tech</label><select id="tech"><option value="">Select Person</option><option value="WM Nayanajijth">WM Nayanajijth</option><option value="Supun Samarasinghe">Supun Samarasinghe</option><option value="Isuru Lakshitha">Isuru Lakshitha</option><option value="Ayesh Harshana">Ayesh Harshana</option><option value="Dilka Dulakshana">Dilka Dulakshana</option><option value="Front Officer">Front Officer</option><option value="Chamith Sandeepa">Chamith Sandeepa</option><option value="Pradeep Kaushalya">Pradeep Kaushalya</option></select></div>
+                </div>
+                <button type="submit" id="registerTicketBtn" class="btn-blue">Register Ticket</button>
+            </form>
+        </div>
+        
+        <div class="card">
+            <h2>🔄 Administration Modify Overrides</h2>
+            <form id="overrideForm">
+                <div class="form-group"><label>Job #</label><input type="number" id="oJobNum" required=""></div>
+                <div class="row">
+                    <div class="form-group"><label>Workshop Location</label><select id="oWorkshop"><option value="">Override Location</option><option value="SAP -  Shop 14">SAP -  Shop 14</option><option value="kalagedihen prj">kalagedihen prj</option><option value="Mr. Gayan - Kadawatha">Mr. Gayan - Kadawatha</option><option value="SAP - Shop 68">SAP - Shop 68</option><option value="SAP CCTV Shop Gampaha">SAP CCTV Shop Gampaha</option><option value="Smart Technology">Smart Technology</option><option value="Ishika - Udigampola">Ishika - Udigampola</option></select></div>
+                    <div class="form-group"><label>Tech Assignment</label><select id="oTech"><option value="">Assign Person</option><option value="WM Nayanajijth">WM Nayanajijth</option><option value="Supun Samarasinghe">Supun Samarasinghe</option><option value="Isuru Lakshitha">Isuru Lakshitha</option><option value="Ayesh Harshana">Ayesh Harshana</option><option value="Dilka Dulakshana">Dilka Dulakshana</option><option value="Front Officer">Front Officer</option><option value="Chamith Sandeepa">Chamith Sandeepa</option><option value="Pradeep Kaushalya">Pradeep Kaushalya</option></select></div>
+                </div>
+                <div class="form-group">
+                    <label>Status State Matrix</label>
+                    <select id="oStatus">
+                        <option value="Pending">Pending</option>
+                        <option value="Ongoing">Ongoing</option>
+                        <option value="Warranty Pending">Warranty Pending</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Cant Repair">Cant Repair</option>
+                        <option value="Returned">Returned</option>
+                        <option value="Warranty Claimed">Warranty Claimed</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-orange">Execute Force Override</button>
+            </form>
+        </div>
+    </div>
+
+    <div>
+        <div class="metrics-grid">
+            <div class="metric-card" style="background:#1e3a8a;"><div class="metric-title">Total Active</div><div id="mTotal" class="metric-value">0</div></div>
+            <div class="metric-card" style="background:#ea580c;"><div class="metric-title">Pending</div><div id="mPending" class="metric-value">0</div></div>
+            <div class="metric-card" style="background:#2563eb;"><div class="metric-title">Ongoing</div><div id="mOngoing" class="metric-value">0</div></div>
+            <div class="metric-card" style="background:#6366f1;"><div class="metric-title">Warranty Pending</div><div id="mWarrantyPending" class="metric-value">0</div></div>
+            <div class="metric-card" style="background:#059669;"><div class="metric-title">Completed</div><div id="mCompleted" class="metric-value">0</div></div>
+            <div class="metric-card" style="background:#ef476f;"><div class="metric-title">Can't Repair</div><div id="mCantRepair" class="metric-value">0</div></div>
+            <div class="metric-card" style="background:#b91c1c;"><div class="metric-title">Returned</div><div id="mReturned" class="metric-value">0</div></div>
+            <div class="metric-card" style="background:#7c3aed;"><div class="metric-title">Warranty Claimed</div><div id="mWarrantyClaimed" class="metric-value">0</div></div>
+        </div>
+
+        <div class="controls-bar">
+            <input type="text" id="fJobNum" placeholder="Search Job #" oninput="renderPipelineTable()">
+            <input type="text" id="fPhoneNum" placeholder="Search Phone..." oninput="renderPipelineTable()">
+            <div style="position:relative;">
+                <input type="text" id="fCustomerName" placeholder="Search Customer Name..." oninput="renderPipelineTable(); triggerSuggestion('fCustomerName', this.value)" autocomplete="off" style="width:100%; box-sizing:border-box;">
+                <div class="suggest-dropdown" id="suggest-fCustomerName"></div>
+            </div>
+            <div style="position:relative;">
+                <input type="text" id="fSerial" placeholder="Search Serial #..." oninput="renderPipelineTable(); triggerSuggestion('fSerial', this.value)" autocomplete="off" style="width:100%; box-sizing:border-box;">
+                <div class="suggest-dropdown" id="suggest-fSerial"></div>
+            </div>
+            <select id="fItemType" onchange="renderPipelineTable()">
+                <option value="ALL">All Categories</option>
+                <option value="Computer">Computer</option>
+                <option value="Laptop">Laptop</option>
+                <option value="Printer">Printer</option>
+                <option value="CCTV Camera">CCTV Camera</option>
+                <option value="Other">Other</option>
+            </select>
+            <select id="fWorkshop" onchange="renderPipelineTable()"><option value="ALL">All Workshops</option><option value="SAP -  Shop 14">SAP -  Shop 14</option><option value="kalagedihen prj">kalagedihen prj</option><option value="Mr. Gayan - Kadawatha">Mr. Gayan - Kadawatha</option><option value="SAP - Shop 68">SAP - Shop 68</option><option value="SAP CCTV Shop Gampaha">SAP CCTV Shop Gampaha</option><option value="Smart Technology">Smart Technology</option><option value="Ishika - Udigampola">Ishika - Udigampola</option></select>
+            <select id="fTech" onchange="renderPipelineTable()"><option value="ALL">All Technicians</option><option value="WM Nayanajijth">WM Nayanajijth</option><option value="Supun Samarasinghe">Supun Samarasinghe</option><option value="Isuru Lakshitha">Isuru Lakshitha</option><option value="Ayesh Harshana">Ayesh Harshana</option><option value="Dilka Dulakshana">Dilka Dulakshana</option><option value="Front Officer">Front Officer</option><option value="Chamith Sandeepa">Chamith Sandeepa</option><option value="Pradeep Kaushalya">Pradeep Kaushalya</option></select>
+            <select id="fStatus" onchange="renderPipelineTable()">
+                <option value="ALL">All Statuses</option>
+                <option value="Pending">Pending</option>
+                <option value="Ongoing">Ongoing</option>
+                <option value="Warranty Pending">Warranty Pending</option>
+                <option value="Completed">Completed</option>
+                <option value="Cant Repair">Cant Repair</option>
+                <option value="Returned">Returned</option>
+                <option value="Warranty Claimed">Warranty Claimed</option>
+            </select>
+            <select id="fHandoverView" onchange="renderPipelineTable()">
+                <option value="HIDE">Hide Handed Over</option>
+                <option value="SHOW">Show Handed Over Only</option>
+                <option value="ALL">Show All Combined</option>
+            </select>
+            <button onclick="fetchLivePipelineData()" style="background:#64748b; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; width: 100%;">🔄 Sync</button>
+        </div>
+
+        <!-- Date Range Filter Bar -->
+        <div class="date-filter-bar">
+            <label>📅 Date Range:</label>
+            <input type="date" id="fDateFrom" onchange="renderPipelineTable()" title="From date">
+            <span style="font-size:13px; color:#94a3b8; font-weight:bold;">→</span>
+            <input type="date" id="fDateTo" onchange="renderPipelineTable()" title="To date">
+            <span id="dateActiveBadge" class="date-active-badge">📅 Date filter active</span>
+            <button class="btn-reset-filters btn-report" onclick="generateFilteredReport()" title="Generate a printable report for the currently filtered results">📊 Generate Report</button>
+            <button class="btn-reset-filters" onclick="resetAllFilters()" title="Clear all filters">✕ Reset Filters</button>
+        </div>
+
+        <div class="table-responsive-wrapper">
+            <table class="pipeline-table">
+                <thead><tr><th>Job Card Details</th><th>Workspace Target</th><th>Handler</th><th>Status / Actions</th></tr></thead>
+                <tbody id="pipelineRowsContainer">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div id="adminLightbox" class="lightbox-modal" onclick="closeAdminLightbox()">
+    <span class="lightbox-close">×</span>
+    <img class="lightbox-content" id="adminLightboxTargetImg">
+</div>
+
+<script>
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzNLvwE7Qn6i89GOzBHcFt0Xz7J0nLouU4E6fIpVl5HWg7ETj79EceKiLUHAtd7UDiH/exec"; 
+    let jobsCacheArray = []; let openAdminHistoryTracker = null;
+    let currentFilteredJobs = []; // tracks whatever is currently visible after filters, used by report generator
+    const AUTH_SESSION_KEY = 'sap_admin_session';
+
+    // ── Job Card Print Configuration ───────────────────────────────────────
+    // Edit these company details freely — they appear on every printed job card.
+    const COMPANY_INFO = {
+        name: "SAP COMPUTERS(PVT)LTD",
+        address: "Shop 14, Sanasa Ideal Building, Gampaha.",
+        phone: "Hotline: 033-7294388 / 076-7119438 / 071-8176220",
+        email: "saptechnology.info@gmail.com",
+        terms: [
+            "Items not collected within 90 days will not be guaranteed for repair or replacement.",
+            "Company is not responsible for any data loss.",
+            "Repair charges are payable on collection.",
+            "Please bring this job card when collecting your item."
+        ]
+    };
+
+    let lastRegisteredJob = null; // holds data for the most recently registered ticket, used for printing
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // ── Repair Estimate Range Helpers ───────────────────────────────────
+    function getEstimatePriceRangeString() {
+        const min = document.getElementById('estimatePriceMin').value.trim();
+        const max = document.getElementById('estimatePriceMax').value.trim();
+        if (min && max) return `${min} - ${max}`;
+        if (min) return min;
+        if (max) return max;
+        return '';
+    }
+
+    function syncEstimateRangeHint() {
+        const hint = document.getElementById('estimateRangeHint');
+        const str = getEstimatePriceRangeString();
+        hint.innerText = str ? `Range: Rs. ${str}` : '';
+    }
+    // ─────────────────────────────────────────────────────────────────────
+
+    function lookupReturningCustomer() {
+        const mobileInput = document.getElementById('mobile').value.trim();
+        const toast = document.getElementById('lookupAlert');
+        if(!mobileInput) { toast.style.display = "block"; toast.style.color = "#b91c1c"; toast.innerText = "Please enter a mobile number first."; return; }
+        toast.style.display = "block"; toast.style.color = "#475569"; toast.innerText = "Searching customer records...";
+
+        fetch(`${WEB_APP_URL}?action=getIndividualCustomer&mobile=${encodeURIComponent(mobileInput)}`)
+        .then(res => res.json()).then(data => {
+            if(data.success) { document.getElementById('customerName').value = data.name; toast.style.color = "#059669"; toast.innerText = "✓ Returning Customer found! Form auto-filled."; } 
+            else { toast.style.color = "#ea580c"; toast.innerText = "New Customer profile."; }
+        }).catch(() => { toast.style.color = "#b91c1c"; toast.innerText = "Error searching database."; });
+    }
+
+    function loadDynamicWorkshopsAndTechDropdowns() {
+        fetch(`${WEB_APP_URL}?action=getWorkshopsList`).then(res => res.json()).then(data => {
+            if(data.success) {
+                const regWork = document.getElementById('workshop'); const ovrWork = document.getElementById('oWorkshop'); const filWork = document.getElementById('fWorkshop');
+                regWork.innerHTML = '<option value="">Select Workshop Location</option>'; ovrWork.innerHTML = '<option value="">Override Location</option>'; filWork.innerHTML = '<option value="ALL">All Workshops</option>';
+                data.workshops.forEach(wName => { const opt = `<option value="${wName}">${wName}</option>`; regWork.innerHTML += opt; ovrWork.innerHTML += opt; filWork.innerHTML += opt; });
+            }
+        });
+
+        fetch(`${WEB_APP_URL}?action=getTechniciansList`).then(res => res.json()).then(data => {
+            if(data.success) {
+                const regTech = document.getElementById('tech'); const ovrTech = document.getElementById('oTech'); const filTech = document.getElementById('fTech');
+                regTech.innerHTML = '<option value="">Select Person</option>'; ovrTech.innerHTML = '<option value="">Assign Person</option>'; filTech.innerHTML = '<option value="ALL">All Technicians</option>';
+                data.technicians.forEach(name => { const opt = `<option value="${name}">${name}</option>`; regTech.innerHTML += opt; ovrTech.innerHTML += opt; filTech.innerHTML += opt; });
+            }
+        });
+    }
+
+    function fetchLivePipelineData() {
+        fetch(`${WEB_APP_URL}?action=getAdminPipeline`).then(res => res.json()).then(data => {
+            if(data.success) {
+                jobsCacheArray = data.jobs;
+                renderPipelineTable();
+                updateNextJobPreview();
+            }
+        });
+    }
+
+    function updateNextJobPreview() {
+        const badge = document.getElementById('nextJobNumPreview');
+        if (!badge) return;
+        if (jobsCacheArray.length === 0) { badge.innerText = '1001'; return; }
+        const maxJobNum = jobsCacheArray.reduce((max, job) => {
+            const n = Number(job.jobNum);
+            return n > max ? n : max;
+        }, 0);
+        badge.innerText = maxJobNum > 0 ? (maxJobNum + 1) : '1001';
+    }
+
+    // Dynamic state counter updates inside view runtime matrices
+    function calculateFilteredCounters(filteredJobs) {
+        const stats = { total: 0, Pending: 0, Ongoing: 0, WarrantyPending: 0, Completed: 0, CantRepair: 0, Returned: 0, WarrantyClaimed: 0 };
+        
+        filteredJobs.forEach(job => {
+            stats.total++;
+            const key = job.status.replace(/\s+/g, '');
+            if(stats[key] !== undefined) stats[key]++;
+        });
+        
+        document.getElementById('mTotal').innerText = stats.total;
+        document.getElementById('mPending').innerText = stats.Pending;
+        document.getElementById('mOngoing').innerText = stats.Ongoing;
+        document.getElementById('mWarrantyPending').innerText = stats.WarrantyPending;
+        document.getElementById('mCompleted').innerText = stats.Completed;
+        document.getElementById('mCantRepair').innerText = stats.CantRepair;
+        document.getElementById('mReturned').innerText = stats.Returned;
+        document.getElementById('mWarrantyClaimed').innerText = stats.WarrantyClaimed;
+    }
+
+    function resetAllFilters() {
+        document.getElementById('fJobNum').value = '';
+        document.getElementById('fPhoneNum').value = '';
+        document.getElementById('fCustomerName').value = '';
+        document.getElementById('fSerial').value = '';
+        document.getElementById('fItemType').value = 'ALL';
+        document.getElementById('fWorkshop').value = 'ALL';
+        document.getElementById('fTech').value = 'ALL';
+        document.getElementById('fStatus').value = 'ALL';
+        document.getElementById('fHandoverView').value = 'HIDE';
+        document.getElementById('fDateFrom').value = '';
+        document.getElementById('fDateTo').value = '';
+        renderPipelineTable();
+    }
+
+    function renderPipelineTable() {
+        const sJob = document.getElementById('fJobNum').value.trim();
+        const sPhone = document.getElementById('fPhoneNum').value.trim();
+        const sCustomer = document.getElementById('fCustomerName').value.trim().toLowerCase();
+        const sSerial = document.getElementById('fSerial').value.trim().toLowerCase();
+        const sItemType = document.getElementById('fItemType').value;
+        const sWork = document.getElementById('fWorkshop').value; 
+        const sTech = document.getElementById('fTech').value; 
+        const sStat = document.getElementById('fStatus').value;
+        const sHandover = document.getElementById('fHandoverView').value;
+        const sDateFrom = document.getElementById('fDateFrom').value;
+        const sDateTo = document.getElementById('fDateTo').value;
+
+        // Update date active badge
+        const dateBadge = document.getElementById('dateActiveBadge');
+        dateBadge.style.display = (sDateFrom || sDateTo) ? 'inline-block' : 'none';
+        
+        const container = document.getElementById('pipelineRowsContainer'); 
+        container.innerHTML = "";
+
+        // Parse date range boundaries (end of day for "to" date)
+        const fromMs = sDateFrom ? new Date(sDateFrom).getTime() : null;
+        const toMs   = sDateTo   ? new Date(sDateTo + 'T23:59:59').getTime() : null;
+
+        // Track only jobs that clear all active matching filters
+        let matchingJobsList = [];
+
+        jobsCacheArray.forEach(job => {
+            if(sJob && !job.jobNum.toString().includes(sJob)) return;
+            if(sPhone && job.mobile && !job.mobile.toString().includes(sPhone)) return;
+            if(sCustomer && !(job.customer || '').toLowerCase().includes(sCustomer)) return;
+            if(sSerial && !(job.serial || '').toLowerCase().includes(sSerial)) return;
+            if(sItemType !== "ALL" && job.itemType !== sItemType) return;
+            if(sWork !== "ALL" && job.workshop !== sWork) return;
+            if(sTech !== "ALL" && job.tech !== sTech) return;
+            if(sStat !== "ALL" && job.status !== sStat) return;
+            
+            if(sHandover === "HIDE" && job.isHandedOver) return;
+            if(sHandover === "SHOW" && !job.isHandedOver) return;
+
+            // Date range filter against job createdTime
+            if(fromMs !== null || toMs !== null) {
+                const jobDate = job.createdTime ? new Date(job.createdTime).getTime() : null;
+                if(!jobDate || isNaN(jobDate)) return;
+                if(fromMs !== null && jobDate < fromMs) return;
+                if(toMs   !== null && jobDate > toMs)   return;
+            }
+
+            // Job passed all filters -> register to array list
+            matchingJobsList.push(job);
+
+            const isHistoryOpen = (openAdminHistoryTracker === job.jobNum) ? "block" : "none";
+            const tr = document.createElement('tr');
+            
+            const handoverChecked = job.isHandedOver ? "checked" : "";
+            const handoverTimeLabel = job.handoverTime ? `<br><span style="font-size:10px; color:#059669;">📦 Handed Over: ${job.handoverTime}</span>` : "";
+
+            tr.innerHTML = `
+                <td colspan="4" style="padding:0; border-bottom:1px solid #e2e8f0;">
+                    <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                        <tr>
+                            <td style="width:25%; padding:12px;"><strong>#${job.jobNum}</strong><br><span style="font-size:11px; color:#64748b;">${job.createdTime}</span></td>
+                            <td style="width:30%; padding:12px;">
+                                <strong>${job.itemType}</strong> (${job.customer})<br>
+
+<span style="font-size:11px;color:#059669;font-weight:bold;">
+🖥️ Model: ${job.model || "N/A"}
+</span><br>
+
+<span style="font-size:11px;color:#64748b;">
+🔢 S/N: ${job.serial || "N/A"}
+</span><br>
+
+<span style="font-size:11px;color:#ef476f;font-weight:800;">
+⚠️ Fault: ${job.fault || "Not Specified"}
+</span><br>
+
+<span style="font-size:11px;color:#1e3a8a;">
+📞 ${job.mobile || "N/A"}
+</span>
+${job.estimatePrice ? `<br><span style="font-size:11px;color:#7c3aed;font-weight:700;">💰 Est: Rs. ${job.estimatePrice}</span>` : ''}
+${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:800;">✅ Total: Rs. ${job.totalPrice}</span>` : ''}
+                            </td>
+                            <td style="width:25%; padding:12px;">🏭 ${job.workshop}<br><span style="font-size:11px; color:#64748b;">👨‍💻 ${job.tech || 'Unassigned'}</span></td>
+                            <td style="width:20%; padding:12px;">
+                                <span class="status-tag status-${job.status.replace(/\s+/g, '')}">${job.status}</span>
+                                ${handoverTimeLabel}
+                                <div class="switch-container">
+                                    <label class="switch">
+                                        <input type="checkbox" ${handoverChecked} onchange="toggleHandoverStateSubmit(${job.jobNum}, this.checked)">
+                                        <span class="slider"></span>
+                                    </label>
+                                    <span>Handover</span>
+                                </div>
+                                <a class="history-link" onclick="toggleAdminHistoryPane(${job.jobNum})">🔍 View History</a>
+                                <a class="history-link" style="color:#1e3a8a; margin-left:10px;" onclick="reprintJobCard(${job.jobNum})">🖨️ Reprint Card</a>
+                            </td>
+                        </tr>
+                    </table>
+                    <div class="history-inline-panel" id="history-panel-${job.jobNum}" style="display: ${isHistoryOpen};"></div>
+                </td>
+            `;
+            container.appendChild(tr);
+            if(openAdminHistoryTracker === job.jobNum) renderAdminHistoryLogsContent(job.jobNum);
+        });
+
+        // Instantly update the metrics cards with filtered dataset criteria
+        calculateFilteredCounters(matchingJobsList);
+        // Keep a reference so "Generate Report" always reports on what's currently visible
+        currentFilteredJobs = matchingJobsList;
+    }
+
+    function toggleHandoverStateSubmit(jobNum, isChecked) {
+        fetch(WEB_APP_URL, {
+            method: 'POST',
+            body: JSON.stringify({
+                action: "toggleHandoverStatus",
+                jobNum: jobNum,
+                isHandedOver: isChecked
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.success) {
+                fetchLivePipelineData();
+            } else {
+                alert("Database transmission layer error. Switch reversion executed.");
+                fetchLivePipelineData();
+            }
+        }).catch(() => {
+            fetchLivePipelineData();
+        });
+    }
+
+    function toggleAdminHistoryPane(jobNum) {
+        const panel = document.getElementById(`history-panel-${jobNum}`); const willOpen = panel.style.display === "none";
+        document.querySelectorAll('.history-inline-panel').forEach(el => el.style.display = "none");
+        if(willOpen) { panel.style.display = "block"; openAdminHistoryTracker = jobNum; renderAdminHistoryLogsContent(jobNum); } 
+        else { openAdminHistoryTracker = null; }
+    }
+
+    function renderAdminHistoryLogsContent(jobNum) {
+        const panel = document.getElementById(`history-panel-${jobNum}`); if(!panel) return;
+        fetch(`${WEB_APP_URL}?action=getJobHistory&jobNum=${jobNum}`).then(res => res.json()).then(data => {
+            if(!data.success || data.history.length === 0) { 
+                panel.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size:12px; color:#64748b;">No logs match this ticket.</span>
+                        <button onclick="renderAdminHistoryLogsContent(${jobNum})" style="background:#1e3a8a; color:white; border:none; padding:4px 8px; border-radius:4px; font-size:11px; cursor:pointer; font-weight:bold;">🔄 Refresh Logs</button>
+                    </div>`; 
+                return; 
+            }
+            let historyHtml = `
+                <div style="display:flex; justify-content:flex-end; margin-bottom:8px;">
+                    <button onclick="renderAdminHistoryLogsContent(${jobNum})" style="background:#1e3a8a; color:white; border:none; padding:4px 10px; border-radius:4px; font-size:11px; cursor:pointer; font-weight:bold;">🔄 Refresh Logs</button>
+                </div>`;
+            data.history.forEach(log => {
+                let thumbsHtml = "";
+                log.images.forEach(url => { if(url) thumbsHtml += `<img src="${url}" class="admin-thumb" onclick="launchAdminLightbox('${url}')" onerror="this.src='https://cdn-icons-png.flaticon.com/512/13434/13434972.png'">`; });
+                historyHtml += `
+                    <div class="admin-timeline-node">
+                        <div style="display:flex; justify-content:space-between; font-size:11px; color:#64748b; font-weight:bold;"><span>🗓️ ${log.timestamp}</span><span>Op: ${log.operator}</span></div>
+                        <div style="font-weight:600; font-size:12px; margin-top:2px;">State: <span style="color:#1e3a8a;">${log.status}</span></div>
+                        <div style="color:#475569; font-size:12.5px; margin-top:2px;">${log.notes}</div>
+                        <div style="display:flex; flex-wrap:wrap; margin-top:5px;">${thumbsHtml}</div>
+                    </div>
+                `;
+            });
+            panel.innerHTML = historyHtml;
+        });
+    }
+
+    function launchAdminLightbox(url) { document.getElementById('adminLightboxTargetImg').src = url; document.getElementById('adminLightbox').style.display = "flex"; }
+    function closeAdminLightbox() { document.getElementById('adminLightbox').style.display = "none"; }
+
+    document.getElementById('registrationForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formSnapshot = {
+            mobile: document.getElementById('mobile').value.trim(),
+            customerName: document.getElementById('customerName').value.trim(),
+            itemType: document.getElementById('itemType').value,
+            model: document.getElementById('model').value.trim(),
+            serial: document.getElementById('serial').value.trim(),
+            fault: document.getElementById('fault').value.trim(),
+            workshop: document.getElementById('workshop').value,
+            tech: document.getElementById('tech').value,
+            estimatedPrice: getEstimatePriceRangeString()
+        };
+
+        // ── Show "generating" animation on the Register Ticket button ──────
+        const regBtn = document.getElementById('registerTicketBtn');
+        const regBtnOriginalHtml = regBtn.innerHTML;
+        regBtn.disabled = true;
+        regBtn.innerHTML = '<span class="btn-spinner"></span>Registering Job...';
+        // ─────────────────────────────────────────────────────────────────
+
+        // FIX (perf): open the pop-up window SYNCHRONOUSLY, in direct response
+        // to the user's submit action, and show a lightweight "please wait"
+        // placeholder inside it. Browsers only reliably allow window.open()
+        // without a pop-up-blocker prompt/delay when it happens inside the
+        // original user gesture — calling it later inside a fetch().then()
+        // (as before) meant the print window could be silently blocked or
+        // delayed, which is what made "printing" feel slow. We now just
+        // fill in the already-open window once the data comes back.
+        const printWinHandle = window.open('', '_blank', 'width=620,height=880');
+        if (printWinHandle) {
+            printWinHandle.document.write('<html><body style="font-family:sans-serif;padding:40px;color:#475569;">Preparing job card…</body></html>');
+        }
+
+        fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action: "registerJob" }, formSnapshot)) })
+        .then(res => res.json()).then(data => { 
+            if(data.success) { 
+                // Stash the data needed to print a job card for this new ticket
+                lastRegisteredJob = Object.assign({ jobNum: data.jobNum, createdAt: new Date() }, formSnapshot);
+
+                document.getElementById('registrationForm').reset(); 
+                document.getElementById('lookupAlert').style.display = "none"; 
+                document.getElementById('estimateRangeHint').innerText = "";
+                
+                const successBanner = document.getElementById('registrationSuccessMessage');
+                successBanner.style.display = "block";
+                
+                setTimeout(() => {
+                    successBanner.style.display = "none";
+                }, 8000);
+
+                fetchLivePipelineData();
+                // Optimistically bump the preview immediately after registration
+                const badge = document.getElementById('nextJobNumPreview');
+                if (badge && badge.innerText !== '—') { badge.innerText = Number(badge.innerText) + 1; }
+
+                // Fill in the pop-up window we already opened, instead of opening a new one now.
+                printJobCard(printWinHandle);
+            } else {
+                if (printWinHandle) printWinHandle.close();
+                alert('Could not register job: ' + (data.error || 'Unknown error.'));
+            }
+        })
+        .catch(() => {
+            if (printWinHandle) printWinHandle.close();
+            alert('Network error while registering job. Please check your connection and try again.');
+        })
+        .finally(() => {
+            regBtn.disabled = false;
+            regBtn.innerHTML = regBtnOriginalHtml;
+        });
+    });
+
+    // ── Job Card Print Generator (A5) ──────────────────────────────────────
+    // Accepts either a freshly-registered snapshot (createdAt: Date, customerName)
+    // or a row from jobsCacheArray (createdTime: string, customer) and normalizes both.
+    function normalizeJobForCard(raw) {
+        const createdStr = raw.createdAt instanceof Date
+            ? raw.createdAt.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+            : (raw.createdTime || raw.createdAt || '');
+
+        return {
+            jobNum: raw.jobNum,
+            customerName: raw.customerName || raw.customer || '',
+            mobile: raw.mobile,
+            itemType: raw.itemType,
+            model: raw.model,
+            serial: raw.serial,
+            fault: raw.fault,
+            estimatedPrice: raw.estimatedPrice || raw.estimatePrice || '',
+            createdStr: createdStr
+        };
+    }
+
+    // Renders the markup for a single physical card sheet (one copy).
+    // copyLabel is stamped on the card, e.g. "CUSTOMER COPY" or "OFFICE COPY".
+    function buildCardSheetMarkup(job, copyLabel, esc, termsListHtml) {
+        return `
+    <div class="card-sheet print-page">
+        <div class="copy-tag">${esc(copyLabel)}</div>
+        <div class="card-header">
+            <div>
+                <p class="company-name">${esc(COMPANY_INFO.name)}</p>
+                <div class="company-meta">${esc(COMPANY_INFO.address)}<br>${esc(COMPANY_INFO.phone)} &nbsp;|&nbsp; ${esc(COMPANY_INFO.email)}</div>
+            </div>
+            <div class="job-num-box">
+                <div class="label">Job Card No.</div>
+                <div class="num">#${esc(job.jobNum)}</div>
+            </div>
+        </div>
+
+        <div class="card-title">Repair / Service Job Card</div>
+
+        <div class="field-row"><div class="f-label">Customer Name</div><div class="f-value">${esc(job.customerName)}</div></div>
+        <div class="field-row"><div class="f-label">Mobile Number</div><div class="f-value">${esc(job.mobile)}</div></div>
+        <div class="field-row"><div class="f-label">Item Category</div><div class="f-value">${esc(job.itemType)}</div></div>
+        <div class="field-row"><div class="f-label">Model / Brand</div><div class="f-value">${esc(job.model) || '—'}</div></div>
+        <div class="field-row"><div class="f-label">Serial Number</div><div class="f-value">${esc(job.serial) || '—'}</div></div>
+        <div class="field-row"><div class="f-label">Date &amp; Time</div><div class="f-value">${esc(job.createdStr)}</div></div>
+        <div class="field-row"><div class="f-label">Repair Estimate</div><div class="f-value">${job.estimatedPrice !== '' && job.estimatedPrice != null ? 'Rs. ' + esc(job.estimatedPrice) : 'To be advised'}</div></div>
+
+        <div class="fault-box">
+            <div class="f-label">Reported Fault / Notes</div>
+            <div class="f-value">${esc(job.fault)}</div>
+        </div>
+
+        <div class="signature-row">
+            <div class="sig-box">
+                <div class="sig-space"></div>
+                <div class="sig-label">Customer Signature</div>
+            </div>
+            <div class="sig-box">
+                <div class="sig-space"></div>
+                <div class="sig-label">Received By</div>
+            </div>
+        </div>
+
+        <div class="card-footer">
+            <div class="terms-title">Terms &amp; Conditions</div>
+            <ol>${termsListHtml}</ol>
+        </div>
+    </div>`;
+    }
+
+    // Builds the full print document containing TWO copies of the job card —
+    // a Customer Copy and an Office Copy — so a single print action outputs both pages.
+    function buildJobCardHtml(job) {
+        const esc = (s) => (s || '').toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+        const termsListHtml = (COMPANY_INFO.terms || [])
+            .map(line => `<li>${esc(line)}</li>`)
+            .join('');
+
+        const customerCopyMarkup = buildCardSheetMarkup(job, 'Customer Copy', esc, termsListHtml);
+        const officeCopyMarkup = buildCardSheetMarkup(job, 'Office Copy', esc, termsListHtml);
+
+        return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Job Card #${esc(job.jobNum)}</title>
+<style>
+    @page { size: A5; margin: 9mm; }
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; margin: 0; padding: 0; }
+    .card-sheet { width: 100%; min-height: 100%; display: flex; flex-direction: column; border: 1px solid #1e293b; padding: 7mm; position: relative; }
+
+    /* Two copies print as two separate A5 pages in one print job */
+    .print-page { page-break-after: always; }
+    .print-page:last-of-type { page-break-after: auto; }
+
+    .copy-tag { position: absolute; top: 7mm; left: 7mm; background: #1e3a8a; color: #fff; font-size: 9px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; padding: 3px 10px; border-radius: 10px; }
+
+    .card-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1e3a8a; padding-bottom: 6px; margin-bottom: 8px; padding-top: 16px; }
+    .company-name { font-size: 17px; font-weight: 800; color: #1e3a8a; margin: 0; }
+    .company-meta { font-size: 10px; color: #475569; line-height: 1.4; margin-top: 2px; }
+    .job-num-box { text-align: right; }
+    .job-num-box .label { font-size: 9px; text-transform: uppercase; font-weight: 700; color: #64748b; }
+    .job-num-box .num { font-size: 22px; font-weight: 800; color: #ea580c; }
+
+    .card-title { text-align: center; font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #1e293b; margin: 4px 0 10px 0; }
+
+    .field-row { display: flex; border-bottom: 1px dotted #cbd5e1; padding: 5px 0; font-size: 12px; }
+    .field-row .f-label { width: 38%; font-weight: 700; color: #475569; text-transform: uppercase; font-size: 10px; }
+    .field-row .f-value { width: 62%; font-weight: 600; color: #0f172a; }
+
+    .fault-box { margin-top: 8px; }
+    .fault-box .f-label { font-weight: 700; color: #475569; text-transform: uppercase; font-size: 10px; margin-bottom: 3px; }
+    .fault-box .f-value { font-size: 12px; border: 1px solid #cbd5e1; border-radius: 4px; padding: 8px; min-height: 12mm; background: #f8fafc; }
+
+    .signature-row { display: flex; justify-content: space-between; margin-top: 14px; gap: 14px; }
+    .signature-row .sig-box { width: 47%; text-align: center; color: #475569; }
+    .signature-row .sig-space { height: 22mm; border: 1px dashed #cbd5e1; border-radius: 4px; margin-bottom: 4px; }
+    .signature-row .sig-label { font-size: 10px; border-top: 1px solid #1e293b; padding-top: 4px; }
+
+    .card-footer { margin-top: auto; padding-top: 8px; border-top: 1px solid #cbd5e1; font-size: 8.5px; color: #64748b; line-height: 1.5; }
+    .card-footer .terms-title { font-weight: 700; text-transform: uppercase; color: #475569; margin-bottom: 3px; }
+    .card-footer ol { margin: 0; padding-left: 14px; }
+    .card-footer ol li { margin-bottom: 1px; }
+
+    @media print {
+        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+</style>
+</head>
+<body>
+    ${customerCopyMarkup}
+    ${officeCopyMarkup}
+    <script>window.onload = function(){ window.print(); };<\/script>
+</body>
+</html>`;
+    }
+
+    // existingWin: optionally pass an already-open window (opened synchronously
+    // in a user-gesture handler) to fill in, instead of opening a fresh one here.
+    function openCardPrintWindow(job, existingWin) {
+        const printWin = existingWin || window.open('', '_blank', 'width=620,height=880');
+        if (!printWin) { alert('Pop-up blocked. Please allow pop-ups to print the job card.'); return; }
+        printWin.document.open();
+        printWin.document.write(buildJobCardHtml(job));
+        printWin.document.close();
+    }
+
+    function printJobCard(existingWin) {
+        if (!lastRegisteredJob) { alert('No recently registered job to print. Please register a job first.'); return; }
+        openCardPrintWindow(normalizeJobForCard(lastRegisteredJob), existingWin);
+    }
+
+    // Reprint a job card for any existing job, looked up from the live pipeline cache.
+    // Opens its own window synchronously since this is called directly from a click.
+    function reprintJobCard(jobNum) {
+        const job = jobsCacheArray.find(j => j.jobNum == jobNum);
+        if (!job) { alert('Could not find that job in the current data. Try syncing first.'); return; }
+        openCardPrintWindow(normalizeJobForCard(job));
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
+    document.getElementById('overrideForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: "adminModifyJob", jobNum: document.getElementById('oJobNum').value.trim(), workshop: document.getElementById('oWorkshop').value, tech: document.getElementById('oTech').value, status: document.getElementById('oStatus').value }) })
+        .then(res => res.json()).then(data => { if(data.success) { document.getElementById('overrideForm').reset(); fetchLivePipelineData(); } });
+    });
+
+    // ── Autocomplete Suggestion Engine ────────────────────────────────────────
+    // Field map: input id → which job property to search in jobsCacheArray
+    const SUGGEST_FIELD_MAP = {
+        'mobile':          job => job.mobile ? job.mobile.toString() : '',
+        'customerName':    job => job.customer || '',
+        'model':           job => job.model || '',
+        'serial':          job => job.serial || '',
+        'fault':           job => job.fault || '',
+        'fCustomerName':   job => job.customer || '',
+        'fSerial':         job => job.serial || ''
+    };
+
+    function triggerSuggestion(fieldId, rawValue) {
+        const val = rawValue.trim().toLowerCase();
+        const dropdown = document.getElementById(`suggest-${fieldId}`);
+        if (!dropdown) return;
+        if (val.length < 2) { dropdown.style.display = 'none'; dropdown.innerHTML = ''; return; }
+
+        const extractor = SUGGEST_FIELD_MAP[fieldId];
+        if (!extractor) return;
+
+        // Collect unique matching values from cache
+        const seen = new Set();
+        const matches = [];
+        jobsCacheArray.forEach(job => {
+            const candidate = extractor(job);
+            if (!candidate) return;
+            const candidateLow = candidate.toLowerCase();
+            if (candidateLow.includes(val) && !seen.has(candidate)) {
+                seen.add(candidate);
+                matches.push(candidate);
+            }
+        });
+
+        if (matches.length === 0) { dropdown.style.display = 'none'; dropdown.innerHTML = ''; return; }
+
+        // Highlight the matching substring
+        dropdown.innerHTML = matches.slice(0, 10).map(m => {
+            const idx = m.toLowerCase().indexOf(val);
+            const highlighted = m.slice(0, idx) + `<strong>${m.slice(idx, idx + val.length)}</strong>` + m.slice(idx + val.length);
+            return `<div class="suggest-item" onmousedown="pickSuggestion('${fieldId}', this)">${highlighted}</div>`;
+        }).join('');
+        dropdown.style.display = 'block';
+    }
+
+    function pickSuggestion(fieldId, el) {
+        const plainText = el.innerText;
+        document.getElementById(fieldId).value = plainText;
+        const dropdown = document.getElementById(`suggest-${fieldId}`);
+        dropdown.style.display = 'none';
+        dropdown.innerHTML = '';
+        // If mobile was picked, auto-run the customer lookup
+        if (fieldId === 'mobile') lookupReturningCustomer();
+        // If a filter bar field was picked, re-render the table
+        if (fieldId === 'fCustomerName' || fieldId === 'fSerial') renderPipelineTable();
+    }
+
+    // Close all dropdowns when clicking outside
+    document.addEventListener('click', function(e) {
+        document.querySelectorAll('.suggest-dropdown').forEach(d => {
+            if (!d.contains(e.target)) { d.style.display = 'none'; }
+        });
+    });
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function initDashboardData() {
+        loadDynamicWorkshopsAndTechDropdowns();
+        fetchLivePipelineData();
+        setInterval(() => {
+            if (openAdminHistoryTracker === null) {
+                fetchLivePipelineData();
+            }
+        }, 30000);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        checkExistingSession();
+    });
+
+    // ── Login Gate ───────────────────────────────────────────────────────
+    // Reuses the existing "techLogin" backend action, so anyone with valid
+    // Technicians sheet credentials can sign in here. If you want the admin
+    // panel restricted to certain people only, add a "Role" column to the
+    // Technicians sheet and check it here (ask me and I can wire that up).
+    function checkExistingSession() {
+        const saved = sessionStorage.getItem(AUTH_SESSION_KEY);
+        if (!saved) return;
+        try {
+            const parsed = JSON.parse(saved);
+            grantAccess(parsed.techName);
+        } catch (e) {
+            sessionStorage.removeItem(AUTH_SESSION_KEY);
+        }
+    }
+
+    function grantAccess(techName) {
+        document.getElementById('loginGate').style.display = 'none';
+        document.getElementById('sessionBar').style.display = 'flex';
+        document.getElementById('loggedInTechName').innerText = techName || 'Admin';
+        initDashboardData();
+    }
+
+    function logoutAdmin() {
+        sessionStorage.removeItem(AUTH_SESSION_KEY);
+        location.reload();
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const username = document.getElementById('loginUsername').value.trim();
+        const password = document.getElementById('loginPassword').value;
+        const btn = document.getElementById('loginSubmitBtn');
+        const errBox = document.getElementById('loginError');
+        errBox.style.display = 'none';
+        btn.disabled = true; btn.innerText = 'Checking...';
+
+        fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: "techLogin", username: username, password: password }) })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify({ techName: data.techName }));
+                grantAccess(data.techName);
+            } else {
+                errBox.innerText = data.error || 'Invalid username or password.';
+                errBox.style.display = 'block';
+            }
+        })
+        .catch(() => {
+            errBox.innerText = 'Network error. Please try again.';
+            errBox.style.display = 'block';
+        })
+        .finally(() => {
+            btn.disabled = false; btn.innerText = 'Login';
+        });
+    });
+    // ─────────────────────────────────────────────────────────────────────
+
+    // ── Filtered Date-Range Report Generator ────────────────────────────
+    function generateFilteredReport() {
+        if (!currentFilteredJobs || currentFilteredJobs.length === 0) {
+            alert('No jobs match the current filters. Adjust filters and try again.');
+            return;
+        }
+        const dateFrom = document.getElementById('fDateFrom').value;
+        const dateTo = document.getElementById('fDateTo').value;
+        const rangeLabel = (dateFrom || dateTo) ? `${dateFrom || 'Start'} → ${dateTo || 'Today'}` : 'All Dates';
+
+        const stats = { Pending: 0, Ongoing: 0, WarrantyPending: 0, Completed: 0, CantRepair: 0, Returned: 0, WarrantyClaimed: 0 };
+        let totalRevenue = 0;
+        currentFilteredJobs.forEach(j => {
+            const key = (j.status || '').replace(/\s+/g, '');
+            if (stats[key] !== undefined) stats[key]++;
+            const tp = parseFloat(j.totalPrice);
+            if (!isNaN(tp)) totalRevenue += tp;
+        });
+
+        const esc = (s) => (s === null || s === undefined) ? '' : String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+
+        const rowsHtml = currentFilteredJobs.map(j => `
+            <tr>
+                <td>#${esc(j.jobNum)}</td>
+                <td>${esc(j.createdTime)}</td>
+                <td>${esc(j.customer)}</td>
+                <td>${esc(j.itemType)}${j.model ? ' (' + esc(j.model) + ')' : ''}</td>
+                <td>${esc(j.workshop)}</td>
+                <td>${esc(j.tech) || 'Unassigned'}</td>
+                <td>${esc(j.status)}</td>
+                <td>${j.estimatePrice ? 'Rs. ' + esc(j.estimatePrice) : '-'}</td>
+                <td>${j.totalPrice ? 'Rs. ' + esc(j.totalPrice) : '-'}</td>
+            </tr>`).join('');
+
+        const reportHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Job Report</title>
+        <style>
+            body{font-family:'Segoe UI',Tahoma,sans-serif;padding:24px;color:#1e293b;}
+            h1{color:#1e3a8a;margin-bottom:4px;font-size:20px;}
+            .meta{font-size:12px;color:#64748b;margin-bottom:18px;}
+            table{width:100%;border-collapse:collapse;font-size:11.5px;}
+            th{background:#f1f5f9;text-align:left;padding:6px 8px;border-bottom:2px solid #cbd5e1;}
+            td{padding:6px 8px;border-bottom:1px solid #e2e8f0;}
+            .summary{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px;}
+            .summary div{background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 14px;font-size:11px;}
+            .summary strong{display:block;font-size:16px;color:#1e3a8a;}
+            @media print { body{padding:8px;} }
+        </style></head><body>
+            <h1>📋 ${esc(COMPANY_INFO.name)} — Job Report</h1>
+            <div class="meta">Date Range: <strong>${esc(rangeLabel)}</strong> &nbsp;|&nbsp; Generated: ${esc(new Date().toLocaleString('en-GB'))} &nbsp;|&nbsp; Total Jobs: <strong>${currentFilteredJobs.length}</strong></div>
+            <div class="summary">
+                <div>Pending<strong>${stats.Pending}</strong></div>
+                <div>Ongoing<strong>${stats.Ongoing}</strong></div>
+                <div>Warranty Pending<strong>${stats.WarrantyPending}</strong></div>
+                <div>Completed<strong>${stats.Completed}</strong></div>
+                <div>Can't Repair<strong>${stats.CantRepair}</strong></div>
+                <div>Returned<strong>${stats.Returned}</strong></div>
+                <div>Warranty Claimed<strong>${stats.WarrantyClaimed}</strong></div>
+                <div>Total Revenue (billed)<strong>Rs. ${totalRevenue.toLocaleString()}</strong></div>
+            </div>
+            <table>
+                <thead><tr><th>Job #</th><th>Date</th><th>Customer</th><th>Item</th><th>Workshop</th><th>Tech</th><th>Status</th><th>Estimate</th><th>Total</th></tr></thead>
+                <tbody>${rowsHtml}</tbody>
+            </table>
+            <script>window.onload=function(){window.print();};<\/script>
+        </body></html>`;
+
+        const win = window.open('', '_blank', 'width=950,height=700');
+        if (!win) { alert('Pop-up blocked. Please allow pop-ups to generate the report.'); return; }
+        win.document.open(); win.document.write(reportHtml); win.document.close();
+    }
+    // ─────────────────────────────────────────────────────────────────────
+</script>
+
+</body>
+</html>

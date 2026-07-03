@@ -74,6 +74,10 @@
         .status-Returned { background: #b91c1c; } 
         .status-CantRepair { background: #ef476f; }
         .status-WarrantyClaimed { background: #7c3aed; }
+        .status-CustomerHold { background: #0891b2; } /* NEW v10.6: Customer Hold status */
+
+        /* NEW v10.6: Customer Informed label — reuses the same visual language as Handover */
+        .informed-label { font-size: 10px; color: #0891b2; font-weight: bold; }
 
         /* Toggle Switch styling for Handover Options */
         .switch-container { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: bold; color: #475569; margin-top: 6px; }
@@ -250,11 +254,16 @@
                         <option value="Pending">Pending</option>
                         <option value="Ongoing">Ongoing</option>
                         <option value="Warranty Pending">Warranty Pending</option>
+                        <option value="Customer Hold">Customer Hold</option>
                         <option value="Completed">Completed</option>
                         <option value="Cant Repair">Cant Repair</option>
                         <option value="Returned">Returned</option>
                         <option value="Warranty Claimed">Warranty Claimed</option>
                     </select>
+                </div>
+                <div class="form-group">
+                    <label>Admin Comment <span style="font-weight:400; color:#94a3b8;">— optional, saved to job history</span></label>
+                    <textarea id="oComment" rows="2" placeholder="Reason for this override / note for the record..."></textarea>
                 </div>
                 <button type="submit" class="btn-orange">Execute Force Override</button>
             </form>
@@ -267,6 +276,7 @@
             <div class="metric-card" style="background:#ea580c;"><div class="metric-title">Pending</div><div id="mPending" class="metric-value">0</div></div>
             <div class="metric-card" style="background:#2563eb;"><div class="metric-title">Ongoing</div><div id="mOngoing" class="metric-value">0</div></div>
             <div class="metric-card" style="background:#6366f1;"><div class="metric-title">Warranty Pending</div><div id="mWarrantyPending" class="metric-value">0</div></div>
+            <div class="metric-card" style="background:#0891b2;"><div class="metric-title">Customer Hold</div><div id="mCustomerHold" class="metric-value">0</div></div>
             <div class="metric-card" style="background:#059669;"><div class="metric-title">Completed</div><div id="mCompleted" class="metric-value">0</div></div>
             <div class="metric-card" style="background:#ef476f;"><div class="metric-title">Can't Repair</div><div id="mCantRepair" class="metric-value">0</div></div>
             <div class="metric-card" style="background:#b91c1c;"><div class="metric-title">Returned</div><div id="mReturned" class="metric-value">0</div></div>
@@ -299,6 +309,7 @@
                 <option value="Pending">Pending</option>
                 <option value="Ongoing">Ongoing</option>
                 <option value="Warranty Pending">Warranty Pending</option>
+                <option value="Customer Hold">Customer Hold</option>
                 <option value="Completed">Completed</option>
                 <option value="Cant Repair">Cant Repair</option>
                 <option value="Returned">Returned</option>
@@ -433,7 +444,7 @@
 
     // Dynamic state counter updates inside view runtime matrices
     function calculateFilteredCounters(filteredJobs) {
-        const stats = { total: 0, Pending: 0, Ongoing: 0, WarrantyPending: 0, Completed: 0, CantRepair: 0, Returned: 0, WarrantyClaimed: 0 };
+        const stats = { total: 0, Pending: 0, Ongoing: 0, WarrantyPending: 0, CustomerHold: 0, Completed: 0, CantRepair: 0, Returned: 0, WarrantyClaimed: 0 };
         
         filteredJobs.forEach(job => {
             stats.total++;
@@ -445,6 +456,7 @@
         document.getElementById('mPending').innerText = stats.Pending;
         document.getElementById('mOngoing').innerText = stats.Ongoing;
         document.getElementById('mWarrantyPending').innerText = stats.WarrantyPending;
+        document.getElementById('mCustomerHold').innerText = stats.CustomerHold;
         document.getElementById('mCompleted').innerText = stats.Completed;
         document.getElementById('mCantRepair').innerText = stats.CantRepair;
         document.getElementById('mReturned').innerText = stats.Returned;
@@ -880,7 +892,7 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
 
     document.getElementById('overrideForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: "adminModifyJob", jobNum: document.getElementById('oJobNum').value.trim(), workshop: document.getElementById('oWorkshop').value, tech: document.getElementById('oTech').value, status: document.getElementById('oStatus').value }) })
+        fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: "adminModifyJob", jobNum: document.getElementById('oJobNum').value.trim(), workshop: document.getElementById('oWorkshop').value, tech: document.getElementById('oTech').value, status: document.getElementById('oStatus').value, comment: document.getElementById('oComment').value.trim() }) })
         .then(res => res.json()).then(data => { if(data.success) { document.getElementById('overrideForm').reset(); fetchLivePipelineData(); } });
     });
 
@@ -1031,7 +1043,7 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         const dateTo = document.getElementById('fDateTo').value;
         const rangeLabel = (dateFrom || dateTo) ? `${dateFrom || 'Start'} → ${dateTo || 'Today'}` : 'All Dates';
 
-        const stats = { Pending: 0, Ongoing: 0, WarrantyPending: 0, Completed: 0, CantRepair: 0, Returned: 0, WarrantyClaimed: 0 };
+        const stats = { Pending: 0, Ongoing: 0, WarrantyPending: 0, CustomerHold: 0, Completed: 0, CantRepair: 0, Returned: 0, WarrantyClaimed: 0 };
         let totalRevenue = 0;
         currentFilteredJobs.forEach(j => {
             const key = (j.status || '').replace(/\s+/g, '');
@@ -1074,6 +1086,7 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
                 <div>Pending<strong>${stats.Pending}</strong></div>
                 <div>Ongoing<strong>${stats.Ongoing}</strong></div>
                 <div>Warranty Pending<strong>${stats.WarrantyPending}</strong></div>
+                <div>Customer Hold<strong>${stats.CustomerHold}</strong></div>
                 <div>Completed<strong>${stats.Completed}</strong></div>
                 <div>Can't Repair<strong>${stats.CantRepair}</strong></div>
                 <div>Returned<strong>${stats.Returned}</strong></div>

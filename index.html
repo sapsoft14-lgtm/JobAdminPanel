@@ -382,7 +382,21 @@
         if (max) return max;
         return '';
     }
-
+function createJitteredPoller(fn, baseMs, jitterMs) {
+    var timeoutId = null;
+    var stopped = false;
+    function scheduleNext() {
+        if (stopped) return;
+        var delay = baseMs + (Math.random() * 2 - 1) * jitterMs;
+        timeoutId = setTimeout(function () {
+            if (stopped) return;
+            fn();
+            scheduleNext();
+        }, Math.max(2000, delay));
+    }
+    scheduleNext();
+    return { stop: function () { stopped = true; if (timeoutId) clearTimeout(timeoutId); } };
+}
     function syncEstimateRangeHint() {
         const hint = document.getElementById('estimateRangeHint');
         const str = getEstimatePriceRangeString();
@@ -964,11 +978,11 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
     function initDashboardData() {
         loadDynamicWorkshopsAndTechDropdowns();
         fetchLivePipelineData();
-        setInterval(() => {
-            if (openAdminHistoryTracker === null) {
-                fetchLivePipelineData();
-            }
-        }, 30000);
+     createJitteredPoller(() => {
+       if (openAdminHistoryTracker === null) {
+            fetchLivePipelineData();
+         }
+     }, 30000, 8000); // ~22-38s, randomized each cycle
     }
 
     window.addEventListener('DOMContentLoaded', () => {

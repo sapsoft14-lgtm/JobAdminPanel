@@ -1120,6 +1120,185 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
     }
     // ─────────────────────────────────────────────────────────────────────
 </script>
+<!-- ══════════════════════════════════════════════════════════════════════
+     🎂 TECHNICIAN BIRTHDAY CELEBRATION — self-contained add-on
+     Paste this whole block just before </body> in any portal file.
+     It does not touch, rename, or depend on anything else in the page.
+     ══════════════════════════════════════════════════════════════════════ -->
+<style>
+    #bdayOverlay { position: fixed; inset: 0; z-index: 99999; display: none; align-items: center; justify-content: center; }
+    #bdayOverlay.show { display: flex; }
+    #bdayCanvas { position: fixed; inset: 0; z-index: 99998; pointer-events: none; }
+
+    .bday-card {
+        position: relative; z-index: 2; pointer-events: auto;
+        background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 50%, #a18cd1 100%);
+        padding: 38px 34px 32px; border-radius: 22px; text-align: center;
+        max-width: 90vw; width: 400px; box-shadow: 0 25px 70px rgba(0,0,0,0.45);
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        animation: bdayPopIn 0.55s cubic-bezier(.34,1.56,.64,1);
+    }
+    @keyframes bdayPopIn { 0% { transform: scale(0.4) translateY(40px); opacity: 0; } 100% { transform: scale(1) translateY(0); opacity: 1; } }
+
+    .bday-emoji-row { font-size: 40px; margin-bottom: 6px; animation: bdayWiggle 1.6s ease-in-out infinite; }
+    @keyframes bdayWiggle { 0%,100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
+
+    .bday-title { font-size: 22px; font-weight: 800; color: #5b21b6; margin: 4px 0 2px; text-shadow: 0 1px 0 rgba(255,255,255,0.6); }
+    .bday-names { font-size: 26px; font-weight: 900; color: #fff; margin: 6px 0 10px; text-shadow: 0 2px 6px rgba(0,0,0,0.25); line-height: 1.3; }
+    .bday-sub { font-size: 13px; color: #3f2d63; font-weight: 600; opacity: 0.9; }
+
+    .bday-close-btn {
+        margin-top: 18px; background: rgba(255,255,255,0.9); color: #5b21b6; border: none;
+        padding: 9px 22px; border-radius: 30px; font-weight: 800; font-size: 12px; letter-spacing: 0.5px;
+        cursor: pointer; text-transform: uppercase; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .bday-close-btn:hover { background: #fff; }
+
+    .bday-balloon {
+        position: absolute; bottom: -40px; width: 34px; height: 44px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+        opacity: 0.9; animation: bdayFloat 5.5s ease-in infinite;
+    }
+    .bday-balloon::after {
+        content: ""; position: absolute; left: 50%; top: 100%; width: 1px; height: 24px;
+        background: rgba(255,255,255,0.5); transform: translateX(-50%);
+    }
+    @keyframes bdayFloat {
+        0%   { transform: translateY(0) translateX(0) rotate(-4deg); opacity: 0.95; }
+        50%  { transform: translateY(-260px) translateX(18px) rotate(4deg); }
+        100% { transform: translateY(-560px) translateX(-10px) rotate(-4deg); opacity: 0; }
+    }
+</style>
+
+<div id="bdayOverlay">
+    <canvas id="bdayCanvas"></canvas>
+    <div class="bday-card" id="bdayCard">
+        <div class="bday-emoji-row">🎉🎂🎈</div>
+        <div class="bday-title">Happy Birthday!</div>
+        <div class="bday-names" id="bdayNamesText">—</div>
+        <div class="bday-sub">Wishing you a fantastic day from the whole team 💙</div>
+        <button class="bday-close-btn" onclick="closeBdayBanner()">Close</button>
+    </div>
+</div>
+
+<script>
+    // ── EDIT THIS LIST ONLY ────────────────────────────────────────────────
+    // Add every technician's name + birthday here (date format: "MM-DD", no year needed).
+    // Anyone can be added, even people not in the system database/login sheet.
+    var TECHNICIAN_BIRTHDAYS = [
+        { name: "Shenaya",              date: "01-08" },
+        { name: "Dasun",                date: "01-09" },
+        { name: "Pasindu Kavishka",     date: "02-24" },
+        { name: "Sachni",               date: "04-12" },
+        { name: "Pradeep Kaushalya",    date: "06-09" },
+        { name: "Anushka Umayanga",     date: "06-28" },
+        { name: "Tenith",               date: "08-08" },
+        { name: "Amidu Hashinsha",      date: "08-19" },
+        { name: "Aravinda Mahesh",      date: "08-20" },
+        { name: "Isuru Lakshitha",      date: "08-20" },
+        { name: "Mrs. Dilani",          date: "08-30" },
+        { name: "W.M. Nayanajith",      date: "09-11" },
+        { name: "Chamith Sandeepa",     date: "09-20" },
+        { name: "Supun Samarasinghe",   date: "09-28" },
+        { name: "Ayesh Harshana",       date: "10-01" },
+        { name: "Ishara Dulan",         date: "10-03" },
+        { name: "Udara",                date: "10-09" },
+        { name: "Dilka Dulakshana",     date: "11-08" },
+        { name: "Charith Hettiarachchi",date: "11-16" },
+        { name: "Sandun Wijayasinghe",  date: "11-24" },
+        { name: "Mr. Laksiri (BOSS)",   date: "11-30" },
+        { name: "Mr. Jagath Kumara",    date: "12-06" }
+    ];
+    // ─────────────────────────────────────────────────────────────────────
+
+    function bdayTodayKey() {
+        var d = new Date();
+        return String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+
+    function getTodaysBdayNames() {
+        var todayKey = bdayTodayKey();
+        return TECHNICIAN_BIRTHDAYS.filter(function (p) { return p.date === todayKey; }).map(function (p) { return p.name; });
+    }
+
+    var bdayConfettiRunning = false;
+    function runBdayConfetti() {
+        var canvas = document.getElementById('bdayCanvas');
+        var ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+        var colors = ['#ff6b6b', '#ffd166', '#06d6a0', '#4cc9f0', '#a18cd1', '#f72585'];
+        var pieces = [];
+        for (var i = 0; i < 140; i++) {
+            pieces.push({
+                x: Math.random() * canvas.width,
+                y: -20 - Math.random() * canvas.height,
+                w: 6 + Math.random() * 6,
+                h: 8 + Math.random() * 10,
+                color: colors[Math.floor(Math.random() * colors.length)],
+                speed: 2 + Math.random() * 3,
+                drift: (Math.random() - 0.5) * 2,
+                rot: Math.random() * 360,
+                rotSpeed: (Math.random() - 0.5) * 10
+            });
+        }
+        bdayConfettiRunning = true;
+        var startTime = Date.now();
+        function frame() {
+            if (!bdayConfettiRunning) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            var elapsed = Date.now() - startTime;
+            pieces.forEach(function (p) {
+                p.y += p.speed; p.x += p.drift; p.rot += p.rotSpeed;
+                ctx.save();
+                ctx.translate(p.x, p.y); ctx.rotate(p.rot * Math.PI / 180);
+                ctx.fillStyle = p.color;
+                ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+                ctx.restore();
+            });
+            if (elapsed < 6000) {
+                requestAnimationFrame(frame);
+            } else {
+                bdayConfettiRunning = false;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+        requestAnimationFrame(frame);
+    }
+
+    function spawnBalloons(card) {
+        var colors = ['#ff6b6b', '#ffd166', '#06d6a0', '#4cc9f0', '#a18cd1', '#f72585'];
+        var positions = [-60, -20, 20, 60, 100, -100];
+        positions.forEach(function (leftOffset, i) {
+            var b = document.createElement('div');
+            b.className = 'bday-balloon';
+            b.style.background = colors[i % colors.length];
+            b.style.left = 'calc(50% + ' + leftOffset + 'px)';
+            b.style.animationDelay = (i * 0.4) + 's';
+            document.getElementById('bdayOverlay').appendChild(b);
+        });
+    }
+
+    function showBdayBanner(names) {
+        document.getElementById('bdayNamesText').innerText = names.join(' & ');
+        document.getElementById('bdayOverlay').classList.add('show');
+        runBdayConfetti();
+        spawnBalloons();
+    }
+
+    function closeBdayBanner() {
+        bdayConfettiRunning = false;
+        document.getElementById('bdayOverlay').classList.remove('show');
+        document.querySelectorAll('.bday-balloon').forEach(function (b) { b.remove(); });
+    }
+
+    // Shows on EVERY page load and refresh, all day long, as long as today matches a birthday.
+    document.addEventListener('DOMContentLoaded', function () {
+        var names = getTodaysBdayNames();
+        if (names.length) {
+            showBdayBanner(names);
+        }
+    });
+</script>
+<!-- ══════════════════════════════ END BIRTHDAY SNIPPET ══════════════════════════════ -->
 
 </body>
 </html>

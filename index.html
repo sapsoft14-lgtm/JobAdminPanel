@@ -68,6 +68,7 @@
         /* Status Tags Styling Matrix */
         .status-tag { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; color: white; display: inline-block; white-space: nowrap; }
         .status-Pending { background: #ea580c; } 
+        .status-PendingforQuotation { background: #f59e0b; } /* NEW: Pending for Quotation status */
         .status-Ongoing { background: #2563eb; } 
         .status-WarrantyPending { background: #6366f1; } 
         .status-Completed { background: #059669; } 
@@ -252,6 +253,7 @@
                     <label>Status State Matrix</label>
                     <select id="oStatus">
                         <option value="Pending">Pending</option>
+                        <option value="Pending for Quotation">Pending for Quotation</option>
                         <option value="Ongoing">Ongoing</option>
                         <option value="Warranty Pending">Warranty Pending</option>
                         <option value="Customer Hold">Customer Hold</option>
@@ -274,6 +276,7 @@
         <div class="metrics-grid">
             <div class="metric-card" style="background:#1e3a8a;"><div class="metric-title">Total Active</div><div id="mTotal" class="metric-value">0</div></div>
             <div class="metric-card" style="background:#ea580c;"><div class="metric-title">Pending</div><div id="mPending" class="metric-value">0</div></div>
+            <div class="metric-card" style="background:#f59e0b;"><div class="metric-title">Pending for Quotation</div><div id="mPendingQuotation" class="metric-value">0</div></div>
             <div class="metric-card" style="background:#2563eb;"><div class="metric-title">Ongoing</div><div id="mOngoing" class="metric-value">0</div></div>
             <div class="metric-card" style="background:#6366f1;"><div class="metric-title">Warranty Pending</div><div id="mWarrantyPending" class="metric-value">0</div></div>
             <div class="metric-card" style="background:#0891b2;"><div class="metric-title">Customer Hold</div><div id="mCustomerHold" class="metric-value">0</div></div>
@@ -307,6 +310,7 @@
             <select id="fStatus" onchange="renderPipelineTable()">
                 <option value="ALL">All Statuses</option>
                 <option value="Pending">Pending</option>
+                <option value="Pending for Quotation">Pending for Quotation</option>
                 <option value="Ongoing">Ongoing</option>
                 <option value="Warranty Pending">Warranty Pending</option>
                 <option value="Customer Hold">Customer Hold</option>
@@ -458,7 +462,7 @@ function createJitteredPoller(fn, baseMs, jitterMs) {
 
     // Dynamic state counter updates inside view runtime matrices
     function calculateFilteredCounters(filteredJobs) {
-        const stats = { total: 0, Pending: 0, Ongoing: 0, WarrantyPending: 0, CustomerHold: 0, Completed: 0, CantRepair: 0, Returned: 0, WarrantyClaimed: 0 };
+        const stats = { total: 0, Pending: 0, PendingforQuotation: 0, Ongoing: 0, WarrantyPending: 0, CustomerHold: 0, Completed: 0, CantRepair: 0, Returned: 0, WarrantyClaimed: 0 };
         
         filteredJobs.forEach(job => {
             stats.total++;
@@ -468,6 +472,7 @@ function createJitteredPoller(fn, baseMs, jitterMs) {
         
         document.getElementById('mTotal').innerText = stats.total;
         document.getElementById('mPending').innerText = stats.Pending;
+        document.getElementById('mPendingQuotation').innerText = stats.PendingforQuotation;
         document.getElementById('mOngoing').innerText = stats.Ongoing;
         document.getElementById('mWarrantyPending').innerText = stats.WarrantyPending;
         document.getElementById('mCustomerHold').innerText = stats.CustomerHold;
@@ -1057,7 +1062,7 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         const dateTo = document.getElementById('fDateTo').value;
         const rangeLabel = (dateFrom || dateTo) ? `${dateFrom || 'Start'} → ${dateTo || 'Today'}` : 'All Dates';
 
-        const stats = { Pending: 0, Ongoing: 0, WarrantyPending: 0, CustomerHold: 0, Completed: 0, CantRepair: 0, Returned: 0, WarrantyClaimed: 0 };
+        const stats = { Pending: 0, PendingforQuotation: 0, Ongoing: 0, WarrantyPending: 0, CustomerHold: 0, Completed: 0, CantRepair: 0, Returned: 0, WarrantyClaimed: 0 };
         let totalRevenue = 0;
         currentFilteredJobs.forEach(j => {
             const key = (j.status || '').replace(/\s+/g, '');
@@ -1098,6 +1103,7 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
             <div class="meta">Date Range: <strong>${esc(rangeLabel)}</strong> &nbsp;|&nbsp; Generated: ${esc(new Date().toLocaleString('en-GB'))} &nbsp;|&nbsp; Total Jobs: <strong>${currentFilteredJobs.length}</strong></div>
             <div class="summary">
                 <div>Pending<strong>${stats.Pending}</strong></div>
+                <div>Pending for Quotation<strong>${stats.PendingforQuotation}</strong></div>
                 <div>Ongoing<strong>${stats.Ongoing}</strong></div>
                 <div>Warranty Pending<strong>${stats.WarrantyPending}</strong></div>
                 <div>Customer Hold<strong>${stats.CustomerHold}</strong></div>

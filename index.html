@@ -80,6 +80,26 @@
         /* NEW v10.6: Customer Informed label — reuses the same visual language as Handover */
         .informed-label { font-size: 10px; color: #0891b2; font-weight: bold; }
 
+        /* NEW v11.3: "Mark Customer Informed" button + running count badge */
+        .btn-informed { background: #ecfeff; color: #0891b2; border: 1px solid #a5f3fc; padding: 5px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; }
+        .btn-informed:hover { background: #cffafe; }
+        .btn-informed:disabled { opacity: 0.6; cursor: not-allowed; }
+        .informed-count-badge { background: #0891b2; color: white; border-radius: 10px; padding: 0 6px; font-size: 10px; font-weight: 800; min-width: 14px; text-align: center; }
+
+        /* NEW v11.3: Cross-portal notification bell + dropdown panel */
+        .notif-bell-wrap { position: relative; }
+        .btn-notif-bell { background: #eff6ff; color: #1e3a8a; border: 1px solid #bfdbfe; padding: 7px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; position: relative; }
+        .btn-notif-bell:hover { background: #dbeafe; }
+        .notif-badge { background: #dc2626; color: white; font-size: 10px; font-weight: 800; border-radius: 10px; padding: 1px 6px; position: absolute; top: -7px; right: -7px; }
+        .notif-panel { position: absolute; top: calc(100% + 8px); right: 0; width: 340px; max-height: 420px; overflow-y: auto; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); z-index: 5000; }
+        .notif-panel-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid #f1f5f9; font-weight: bold; font-size: 12px; color: #1e3a8a; position: sticky; top: 0; background: white; }
+        .notif-panel-header button { background: #1e3a8a; color: white; border: none; padding: 4px 10px; border-radius: 5px; font-size: 11px; cursor: pointer; font-weight: bold; }
+        .notif-item { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; font-size: 12px; }
+        .notif-item.unread { background: #eff6ff; }
+        .notif-item .notif-meta { display: flex; justify-content: space-between; color: #94a3b8; font-size: 10px; margin-bottom: 3px; }
+        .notif-item .notif-note { color: #64748b; margin-top: 3px; }
+        .notif-empty { text-align: center; color: #94a3b8; font-size: 12px; padding: 22px 10px; }
+
         /* Toggle Switch styling for Handover Options */
         .switch-container { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: bold; color: #475569; margin-top: 6px; }
         .switch { position: relative; display: inline-block; width: 34px; height: 20px; flex-shrink: 0; }
@@ -163,7 +183,19 @@
 
 <div class="session-bar" id="sessionBar" style="display:none;">
     <span>👤 Logged in as <strong id="loggedInTechName">—</strong></span>
-    <button class="btn-logout" onclick="logoutAdmin()">Logout</button>
+    <div style="display:flex; align-items:center; gap:10px;">
+        <div class="notif-bell-wrap">
+            <button type="button" class="btn-notif-bell" onclick="toggleNotifPanel()">🔔 <span class="notif-badge" id="notifBadge" style="display:none;">0</span></button>
+            <div class="notif-panel" id="notifPanel" style="display:none;">
+                <div class="notif-panel-header">
+                    <span>🔔 Recent Job Updates</span>
+                    <button type="button" onclick="clearViewedNotifications()">Clear</button>
+                </div>
+                <div class="notif-list" id="notifList"><div class="notif-empty">Loading...</div></div>
+            </div>
+        </div>
+        <button class="btn-logout" onclick="logoutAdmin()">Logout</button>
+    </div>
 </div>
 
 <div class="dashboard-container">
@@ -354,7 +386,7 @@
 </div>
 
 <script>
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzNLvwE7Qn6i89GOzBHcFt0Xz7J0nLouU4E6fIpVl5HWg7ETj79EceKiLUHAtd7UDiH/exec"; 
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzXj72GD_dE1zH46_OK28Xgo_Z0-sBeRK4BbgwJ2nAvWMgfvr4yXCregGKi86waUxUQ/exec"; 
     let jobsCacheArray = []; let openAdminHistoryTracker = null;
     let currentFilteredJobs = []; // tracks whatever is currently visible after filters, used by report generator
     const AUTH_SESSION_KEY = 'sap_admin_session';
@@ -593,6 +625,11 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
                                 </div>
                                 <a class="history-link" onclick="toggleAdminHistoryPane(${job.jobNum})">🔍 View History</a>
                                 <a class="history-link" style="color:#1e3a8a; margin-left:10px;" onclick="reprintJobCard(${job.jobNum})">🖨️ Reprint Card</a>
+                                <br>
+                                <button type="button" id="informedBtn-${job.jobNum}" class="btn-informed" onclick="markCustomerInformedSubmit(${job.jobNum}, this)">
+                                    📣 Customer Informed${job.informedCount ? ` <span class="informed-count-badge">${job.informedCount}</span>` : ''}
+                                </button>
+                                ${job.informedLastDate ? `<div class="informed-label" id="informedLastLabel-${job.jobNum}">Last informed: ${job.informedLastDate}</div>` : `<div class="informed-label" id="informedLastLabel-${job.jobNum}"></div>`}
                             </td>
                         </tr>
                     </table>
@@ -630,6 +667,105 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
             fetchLivePipelineData();
         });
     }
+
+    // NEW v11.3: "Mark Customer Informed" — increments the count + timestamp
+    // every time it's clicked, so the badge climbs 1, 2, 3... on repeat taps.
+    function markCustomerInformedSubmit(jobNum, btnEl) {
+        if (btnEl) btnEl.disabled = true;
+        const techLabel = document.getElementById('loggedInTechName') ? document.getElementById('loggedInTechName').innerText : '';
+        fetch(WEB_APP_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: "markCustomerInformed", jobNum: jobNum, tech: techLabel })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                const job = jobsCacheArray.find(j => j.jobNum == jobNum);
+                if (job) { job.informedCount = data.informedCount; job.informedLastDate = data.informedLastDate; }
+                renderPipelineTable();
+                fetchNotifications();
+            } else {
+                alert('Could not update: ' + (data.error || 'Unknown error.'));
+                if (btnEl) btnEl.disabled = false;
+            }
+        })
+        .catch(() => {
+            alert('Network error while updating customer-informed status.');
+            if (btnEl) btnEl.disabled = false;
+        });
+    }
+
+    // ── Notification Bell (v11.3, NEW) ──────────────────────────────────────
+    // Reads the shared getNotifications feed (built from StatusLogs on the
+    // backend) and tracks "cleared up to id X" locally via localStorage, so
+    // viewing/clearing never deletes real data and each device keeps its
+    // own read state.
+    const NOTIF_DISMISS_KEY = 'sap_notif_last_cleared_id';
+    let notifFeedCache = [];
+
+    function getLastClearedNotifId() {
+        return Number(localStorage.getItem(NOTIF_DISMISS_KEY)) || 0;
+    }
+
+    function fetchNotifications() {
+        fetch(`${WEB_APP_URL}?action=getNotifications`)
+        .then(res => res.json())
+        .then(data => { if (data.success) { notifFeedCache = data.notifications; renderNotifPanel(); } })
+        .catch(() => {});
+    }
+
+    function formatNotifTime(ts) {
+        try {
+            const d = new Date(ts);
+            if (isNaN(d.getTime())) return ts;
+            return d.toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+        } catch (e) { return ts; }
+    }
+
+    function renderNotifPanel() {
+        const lastCleared = getLastClearedNotifId();
+        const unreadCount = notifFeedCache.filter(n => n.id > lastCleared).length;
+        const badge = document.getElementById('notifBadge');
+        if (badge) {
+            if (unreadCount > 0) { badge.style.display = 'inline-block'; badge.innerText = unreadCount > 99 ? '99+' : unreadCount; }
+            else { badge.style.display = 'none'; }
+        }
+
+        const list = document.getElementById('notifList');
+        if (!list) return;
+        if (notifFeedCache.length === 0) { list.innerHTML = '<div class="notif-empty">No recent updates.</div>'; return; }
+
+        list.innerHTML = notifFeedCache.map(n => `
+            <div class="notif-item ${n.id > lastCleared ? 'unread' : ''}">
+                <div class="notif-meta"><span>Job #${n.jobNum}</span><span>${formatNotifTime(n.timestamp)}</span></div>
+                <div><strong>${n.status}</strong> — ${n.operator || ''}</div>
+                <div class="notif-note">${n.note || ''}</div>
+            </div>`).join('');
+    }
+
+    function toggleNotifPanel() {
+        const panel = document.getElementById('notifPanel');
+        const willOpen = panel.style.display === 'none';
+        panel.style.display = willOpen ? 'block' : 'none';
+        if (willOpen) fetchNotifications();
+    }
+
+    // "View it, then clear it" — clearing just moves the local watermark up
+    // to the newest id currently loaded; it does not touch the spreadsheet.
+    function clearViewedNotifications() {
+        if (notifFeedCache.length > 0) {
+            const maxId = Math.max(...notifFeedCache.map(n => n.id));
+            localStorage.setItem(NOTIF_DISMISS_KEY, maxId);
+        }
+        renderNotifPanel();
+    }
+
+    document.addEventListener('click', function (e) {
+        const wrap = document.querySelector('.notif-bell-wrap');
+        const panel = document.getElementById('notifPanel');
+        if (wrap && panel && !wrap.contains(e.target)) { panel.style.display = 'none'; }
+    });
+    // ─────────────────────────────────────────────────────────────────────────
 
     function toggleAdminHistoryPane(jobNum) {
         const panel = document.getElementById(`history-panel-${jobNum}`); const willOpen = panel.style.display === "none";
@@ -983,11 +1119,13 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
     function initDashboardData() {
         loadDynamicWorkshopsAndTechDropdowns();
         fetchLivePipelineData();
+        fetchNotifications();
      createJitteredPoller(() => {
        if (openAdminHistoryTracker === null) {
             fetchLivePipelineData();
          }
      }, 30000, 8000); // ~22-38s, randomized each cycle
+     createJitteredPoller(fetchNotifications, 25000, 6000); // ~19-31s, randomized each cycle
     }
 
     window.addEventListener('DOMContentLoaded', () => {

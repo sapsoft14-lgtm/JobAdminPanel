@@ -163,6 +163,38 @@
         .wschart-fill { height: 100%; border-radius: 4px; transition: width .3s ease; }
         .wschart-value { width: 26px; text-align: right; font-weight: 800; color: #1e293b; font-size: 12px; }
 
+        /* NEW: "Jobs by Workshop" chart + "Oldest Jobs" slideshow side-by-side layout */
+        .dashboard-panels-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: stretch; }
+        .dashboard-panels-row .card { margin-bottom: 0; display: flex; flex-direction: column; }
+        @media (max-width: 900px) {
+            .dashboard-panels-row { grid-template-columns: 1fr; }
+        }
+
+        /* Oldest Jobs slideshow */
+        .oldest-jobs-slideshow { position: relative; flex: 1; display: flex; flex-direction: column; }
+        .oldest-slide-viewport { position: relative; min-height: 168px; }
+        .oldest-slide { display: none; animation: oldestFadeIn .35s ease; }
+        .oldest-slide.active { display: block; }
+        @keyframes oldestFadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+        .oldest-slide-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+        .oldest-slide-jobnum { font-size: 16px; font-weight: 800; color: #1e3a8a; }
+        .oldest-slide-age { font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 20px; color: white; white-space: nowrap; }
+        .oldest-slide-row { font-size: 12.5px; color: #475569; margin-bottom: 5px; line-height: 1.5; }
+        .oldest-slide-row strong { color: #1e293b; }
+        .oldest-slide-empty { font-size: 12px; color: #94a3b8; text-align: center; padding: 30px 0; }
+        .oldest-slide-nav { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 12px; }
+        .oldest-slide-nav button { background: #eff6ff; color: #1e3a8a; border: 1px solid #bfdbfe; width: 26px; height: 26px; border-radius: 50%; cursor: pointer; font-weight: 800; font-size: 12px; line-height: 1; display: flex; align-items: center; justify-content: center; }
+        .oldest-slide-nav button:hover { background: #dbeafe; }
+        .oldest-slide-dots { display: flex; gap: 6px; }
+        .oldest-slide-dot { width: 7px; height: 7px; border-radius: 50%; background: #cbd5e1; cursor: pointer; transition: background .15s, transform .15s; }
+        .oldest-slide-dot.active { background: #1e3a8a; transform: scale(1.25); }
+        body.dark-mode .oldest-slide-row { color: #94a3b8; }
+        body.dark-mode .oldest-slide-row strong { color: #e2e8f0; }
+        body.dark-mode .oldest-slide-jobnum { color: #93c5fd; }
+        body.dark-mode .oldest-slide-dot { background: #334155; }
+        body.dark-mode .oldest-slide-dot.active { background: #93c5fd; }
+        body.dark-mode .oldest-slide-nav button { background: #0c2440; border-color: #1e3a8a; color: #93c5fd; }
+
         .btn-logout { background: #dc2626; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; }
         .btn-logout:hover { background: #b91c1c; }
 
@@ -249,6 +281,13 @@
                 <span class="slider"></span>
             </label>
             🌙 Dark Mode
+        </div>
+        <div class="theme-toggle-wrap">
+            <label class="switch">
+                <input type="checkbox" id="desktopNotifToggle" onchange="toggleDesktopNotifications(this.checked)">
+                <span class="slider"></span>
+            </label>
+            🖥️ Desktop Alerts
         </div>
         <div class="notif-bell-wrap">
             <button type="button" class="btn-notif-bell" onclick="toggleNotifPanel()">🔔 <span class="notif-badge" id="notifBadge" style="display:none;">0</span></button>
@@ -384,9 +423,23 @@
             <div class="metric-card" style="background:#7c3aed;"><div class="metric-title">Warranty Claimed</div><div id="mWarrantyClaimed" class="metric-value">0</div></div>
         </div>
 
-        <div class="card" style="margin-bottom:20px;">
-            <h2>🏭 Jobs by Workshop <span style="font-size:11px; font-weight:400; color:#94a3b8; text-transform:none;">(reflects current filters)</span></h2>
-            <div id="workshopChartBars"></div>
+        <div class="dashboard-panels-row" style="margin-bottom:20px;">
+            <div class="card" style="margin-bottom:0;">
+                <h2>🏭 Jobs by Workshop <span style="font-size:11px; font-weight:400; color:#94a3b8; text-transform:none;">(reflects current filters)</span></h2>
+                <div id="workshopChartBars"></div>
+            </div>
+
+            <div class="card" style="margin-bottom:0;">
+                <h2>⏳ Oldest Jobs in Queue <span style="font-size:11px; font-weight:400; color:#94a3b8; text-transform:none;">(last 5, oldest first)</span></h2>
+                <div class="oldest-jobs-slideshow" id="oldestJobsSlideshow" onmouseenter="pauseOldestJobsAutoplay()" onmouseleave="resumeOldestJobsAutoplay()">
+                    <div class="oldest-slide-viewport" id="oldestSlideViewport"></div>
+                    <div class="oldest-slide-nav" id="oldestSlideNav" style="display:none;">
+                        <button type="button" onclick="stepOldestJobsSlide(-1)">‹</button>
+                        <div class="oldest-slide-dots" id="oldestSlideDots"></div>
+                        <button type="button" onclick="stepOldestJobsSlide(1)">›</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="controls-bar">
@@ -630,6 +683,113 @@ function createJitteredPoller(fn, baseMs, jitterMs) {
         }).join('');
     }
 
+    // ── "Oldest Jobs in Queue" slideshow (NEW) ──────────────────────────────
+    // Takes the same filtered job list as the workshop chart, sorts by
+    // createdTime ascending (oldest first), keeps only the oldest 5, and
+    // cycles through their details one at a time — showing how many days
+    // have elapsed since each job was entered.
+    let oldestJobsSlideData = [];
+    let oldestJobsSlideIndex = 0;
+    let oldestJobsAutoplayTimer = null;
+    let oldestJobsAutoplayPaused = false;
+
+    function ageBadgeColor(days) {
+        if (days >= 14) return '#b91c1c';   // long-overdue: red
+        if (days >= 7)  return '#ea580c';   // aging: orange
+        if (days >= 3)  return '#f59e0b';   // watch: amber
+        return '#059669';                    // fresh: green
+    }
+
+    function renderOldestJobsSlideshow(filteredJobs) {
+        const viewport = document.getElementById('oldestSlideViewport');
+        const nav = document.getElementById('oldestSlideNav');
+        const dotsWrap = document.getElementById('oldestSlideDots');
+        if (!viewport) return;
+
+        const now = Date.now();
+        const withDates = filteredJobs
+            .map(job => ({ job, ts: job.createdTime ? new Date(job.createdTime).getTime() : NaN }))
+            .filter(x => !isNaN(x.ts));
+
+        withDates.sort((a, b) => a.ts - b.ts); // oldest first
+        oldestJobsSlideData = withDates.slice(0, 5).map(x => {
+            const days = Math.max(0, Math.floor((now - x.ts) / 86400000));
+            return { job: x.job, days };
+        });
+
+        if (oldestJobsSlideData.length === 0) {
+            viewport.innerHTML = '<div class="oldest-slide-empty">No jobs match the current filters.</div>';
+            nav.style.display = 'none';
+            clearOldestJobsAutoplay();
+            return;
+        }
+
+        if (oldestJobsSlideIndex >= oldestJobsSlideData.length) oldestJobsSlideIndex = 0;
+
+        viewport.innerHTML = oldestJobsSlideData.map((entry, i) => {
+            const { job, days } = entry;
+            const ageLabel = days === 0 ? 'Entered today' : (days === 1 ? '1 day ago' : `${days} days ago`);
+            return `<div class="oldest-slide ${i === oldestJobsSlideIndex ? 'active' : ''}" data-slide="${i}">
+                <div class="oldest-slide-top">
+                    <span class="oldest-slide-jobnum">#${job.jobNum}</span>
+                    <span class="oldest-slide-age" style="background:${ageBadgeColor(days)};">⏱️ ${ageLabel}</span>
+                </div>
+                <div class="oldest-slide-row"><strong>${job.itemType || 'Item'}</strong> — ${job.customer || 'Unknown Customer'}</div>
+                <div class="oldest-slide-row">🖥️ Model: ${job.model || 'N/A'}</div>
+                <div class="oldest-slide-row">⚠️ Fault: ${job.fault || 'Not Specified'}</div>
+                <div class="oldest-slide-row">🏭 ${job.workshop || 'Unassigned'} &nbsp;|&nbsp; 👨‍💻 ${job.tech || 'Unassigned'}</div>
+                <div class="oldest-slide-row"><span class="status-tag status-${(job.status || '').replace(/\s+/g, '')}">${job.status || ''}</span></div>
+                <div class="oldest-slide-row" style="color:#94a3b8; font-size:11px;">📅 Entered: ${job.createdTime}</div>
+            </div>`;
+        }).join('');
+
+        if (oldestJobsSlideData.length > 1) {
+            nav.style.display = 'flex';
+            dotsWrap.innerHTML = oldestJobsSlideData.map((_, i) =>
+                `<span class="oldest-slide-dot ${i === oldestJobsSlideIndex ? 'active' : ''}" onclick="goToOldestJobsSlide(${i})"></span>`
+            ).join('');
+            startOldestJobsAutoplay();
+        } else {
+            nav.style.display = 'none';
+            clearOldestJobsAutoplay();
+        }
+    }
+
+    function showOldestJobsSlide(index) {
+        oldestJobsSlideIndex = index;
+        document.querySelectorAll('#oldestSlideViewport .oldest-slide').forEach((el, i) => {
+            el.classList.toggle('active', i === index);
+        });
+        document.querySelectorAll('#oldestSlideDots .oldest-slide-dot').forEach((el, i) => {
+            el.classList.toggle('active', i === index);
+        });
+    }
+
+    function stepOldestJobsSlide(delta) {
+        if (oldestJobsSlideData.length === 0) return;
+        const next = (oldestJobsSlideIndex + delta + oldestJobsSlideData.length) % oldestJobsSlideData.length;
+        showOldestJobsSlide(next);
+    }
+
+    function goToOldestJobsSlide(index) {
+        showOldestJobsSlide(index);
+    }
+
+    function startOldestJobsAutoplay() {
+        clearOldestJobsAutoplay();
+        oldestJobsAutoplayTimer = setInterval(() => {
+            if (!oldestJobsAutoplayPaused) stepOldestJobsSlide(1);
+        }, 4500);
+    }
+
+    function clearOldestJobsAutoplay() {
+        if (oldestJobsAutoplayTimer) { clearInterval(oldestJobsAutoplayTimer); oldestJobsAutoplayTimer = null; }
+    }
+
+    function pauseOldestJobsAutoplay() { oldestJobsAutoplayPaused = true; }
+    function resumeOldestJobsAutoplay() { oldestJobsAutoplayPaused = false; }
+    // ─────────────────────────────────────────────────────────────────────────
+
     function resetAllFilters() {
         document.getElementById('fJobNum').value = '';
         document.getElementById('fQuickSearch').value = '';
@@ -762,6 +922,7 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         // Instantly update the metrics cards with filtered dataset criteria
         calculateFilteredCounters(matchingJobsList);
         renderWorkshopChart(matchingJobsList);
+        renderOldestJobsSlideshow(matchingJobsList);
         // Keep a reference so "Generate Report" always reports on what's currently visible
         currentFilteredJobs = matchingJobsList;
     }
@@ -830,9 +991,84 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
     function fetchNotifications() {
         fetch(`${WEB_APP_URL}?action=getNotifications`)
         .then(res => res.json())
-        .then(data => { if (data.success) { notifFeedCache = data.notifications; renderNotifPanel(); } })
+        .then(data => { if (data.success) { notifFeedCache = data.notifications; renderNotifPanel(); maybeShowDesktopNotifications(); } })
         .catch(() => {});
     }
+
+    // ── Desktop Browser Notifications (NEW) ─────────────────────────────────
+    // Opt-in toggle (persisted per-browser via localStorage) that mirrors new
+    // items from the same notifFeedCache used by the bell, but pops a native
+    // OS/browser notification via the Notification API instead of/along with
+    // the in-app panel. Uses its own high-water mark so enabling it doesn't
+    // dump every historical update, and so "cleared" state in the bell
+    // doesn't affect what's already been popped as a desktop alert.
+    const DESKTOP_NOTIF_ENABLED_KEY = 'sap_desktop_notif_enabled';
+    const DESKTOP_NOTIF_LAST_ID_KEY = 'sap_desktop_notif_last_id';
+
+    function isDesktopNotifEnabled() {
+        return localStorage.getItem(DESKTOP_NOTIF_ENABLED_KEY) === '1'
+            && ('Notification' in window)
+            && Notification.permission === 'granted';
+    }
+
+    function toggleDesktopNotifications(checked) {
+        const toggleEl = document.getElementById('desktopNotifToggle');
+        if (!checked) {
+            localStorage.setItem(DESKTOP_NOTIF_ENABLED_KEY, '0');
+            return;
+        }
+        if (!('Notification' in window)) {
+            alert('Desktop notifications are not supported in this browser.');
+            if (toggleEl) toggleEl.checked = false;
+            return;
+        }
+        Notification.requestPermission().then(permission => {
+            if (permission === 'granted') {
+                localStorage.setItem(DESKTOP_NOTIF_ENABLED_KEY, '1');
+                // Baseline to "now" so enabling doesn't flood the user with
+                // every past update — only future ones will pop.
+                const maxId = notifFeedCache.length ? Math.max(...notifFeedCache.map(n => n.id)) : 0;
+                localStorage.setItem(DESKTOP_NOTIF_LAST_ID_KEY, maxId);
+                new Notification('Desktop alerts enabled', {
+                    body: 'You\'ll now get a desktop notification when a job status is updated.'
+                });
+            } else {
+                localStorage.setItem(DESKTOP_NOTIF_ENABLED_KEY, '0');
+                if (toggleEl) toggleEl.checked = false;
+                if (permission === 'denied') {
+                    alert('Notifications are blocked for this site. Enable them in your browser\'s site settings to use Desktop Alerts.');
+                }
+            }
+        });
+    }
+
+    function maybeShowDesktopNotifications() {
+        if (!isDesktopNotifEnabled()) return;
+        const lastDesktopId = Number(localStorage.getItem(DESKTOP_NOTIF_LAST_ID_KEY)) || 0;
+        const fresh = notifFeedCache.filter(n => n.id > lastDesktopId).sort((a, b) => a.id - b.id);
+        if (fresh.length === 0) return;
+
+        // Cap how many pop at once (e.g. after being away a while) so a big
+        // backlog doesn't spawn a wall of OS notifications.
+        fresh.slice(-5).forEach(n => {
+            try {
+                const notif = new Notification(`Job #${n.jobNum} — ${n.status}`, {
+                    body: n.note || (n.operator ? `Updated by ${n.operator}` : 'Job status updated'),
+                    tag: `sap-notif-${n.id}`
+                });
+                notif.onclick = () => {
+                    window.focus();
+                    const panel = document.getElementById('notifPanel');
+                    if (panel) { panel.style.display = 'block'; }
+                    notif.close();
+                };
+            } catch (e) { /* ignore individual notification failures */ }
+        });
+
+        const maxId = Math.max(...notifFeedCache.map(n => n.id));
+        localStorage.setItem(DESKTOP_NOTIF_LAST_ID_KEY, maxId);
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     function formatNotifTime(ts) {
         try {
@@ -1258,6 +1494,8 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
 
     window.addEventListener('DOMContentLoaded', () => {
         checkExistingSession();
+        const desktopToggle = document.getElementById('desktopNotifToggle');
+        if (desktopToggle) { desktopToggle.checked = isDesktopNotifEnabled(); }
     });
 
     // ── Login Gate ───────────────────────────────────────────────────────

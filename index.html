@@ -155,8 +155,60 @@
 
         /* ── Session Bar ────────────────────────────────────────────────── */
         .session-bar { display: flex; justify-content: space-between; align-items: center; background: white; padding: 10px 16px; border-radius: 8px; margin: 0 auto 16px auto; max-width: 1700px; border: 1px solid #e2e8f0; font-size: 13px; font-weight: 600; }
+        /* Small Workshop Distribution Chart */
+        .wschart-row { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; font-size: 12px; }
+        .wschart-row:last-child { margin-bottom: 0; }
+        .wschart-label { width: 42%; flex-shrink: 0; color: #475569; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .wschart-track { flex: 1; background: #f1f5f9; border-radius: 4px; height: 16px; position: relative; overflow: hidden; }
+        .wschart-fill { height: 100%; border-radius: 4px; transition: width .3s ease; }
+        .wschart-value { width: 26px; text-align: right; font-weight: 800; color: #1e293b; font-size: 12px; }
+
         .btn-logout { background: #dc2626; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; }
         .btn-logout:hover { background: #b91c1c; }
+
+        /* ── Dark Mode Toggle Switch (reuses .switch-container/.switch/.slider) ── */
+        .theme-toggle-wrap { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: bold; color: #475569; }
+        .theme-toggle-wrap .switch { width: 34px; height: 20px; }
+
+        /* ══════════════════════════════ DARK MODE OVERRIDES ══════════════════════════════
+           Purely additive: only applies when <body> has class "dark-mode". Nothing above
+           this block is modified, so light mode (the default) is completely unaffected. */
+        body.dark-mode { background-color: #0f172a; color: #e2e8f0; }
+        body.dark-mode .theme-toggle-wrap { color: #cbd5e1; }
+        body.dark-mode .card { background: #1e293b; border-color: #334155; box-shadow: 0 4px 10px rgba(0,0,0,0.35); }
+        body.dark-mode h2 { color: #93c5fd; border-bottom-color: #334155; }
+        body.dark-mode label { color: #94a3b8; }
+        body.dark-mode input, body.dark-mode select, body.dark-mode textarea {
+            background-color: #0f172a; border-color: #334155; color: #e2e8f0;
+        }
+        body.dark-mode input::placeholder, body.dark-mode textarea::placeholder { color: #64748b; }
+        body.dark-mode .controls-bar { background: #1e293b; border-color: #334155; }
+        body.dark-mode .date-filter-bar { background: #1e293b; border-color: #334155; }
+        body.dark-mode .table-responsive-wrapper { background: #1e293b; border-color: #334155; }
+        body.dark-mode .pipeline-table th { background: #0f172a; border-bottom-color: #334155; color: #93c5fd; }
+        body.dark-mode .pipeline-table td { border-bottom-color: #334155; color: #e2e8f0; }
+        body.dark-mode .suggest-dropdown { background: #1e293b; border-color: #334155; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+        body.dark-mode .suggest-item { color: #e2e8f0; border-bottom-color: #334155; }
+        body.dark-mode .suggest-item:hover, body.dark-mode .suggest-item.active { background: #334155; color: #93c5fd; }
+        body.dark-mode .suggest-item strong { color: #93c5fd; }
+        body.dark-mode .history-inline-panel { background: #0f172a; border-color: #334155; }
+        body.dark-mode .admin-timeline-node { border-bottom-color: #334155; }
+        body.dark-mode .session-bar { background: #1e293b; border-color: #334155; color: #e2e8f0; }
+        body.dark-mode .notif-panel { background: #1e293b; border-color: #334155; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        body.dark-mode .notif-panel-header { background: #1e293b; border-bottom-color: #334155; color: #93c5fd; }
+        body.dark-mode .notif-item { border-bottom-color: #334155; }
+        body.dark-mode .notif-item.unread { background: #0c2440; }
+        body.dark-mode .notif-item .notif-meta { color: #64748b; }
+        body.dark-mode .notif-item .notif-note { color: #94a3b8; }
+        body.dark-mode .login-box { background: #1e293b; color: #e2e8f0; }
+        body.dark-mode .login-hint { color: #94a3b8; }
+        body.dark-mode .success-banner { background: #052e1f; color: #6ee7b7; border-color: #065f46; }
+        body.dark-mode .wschart-label, body.dark-mode .wschart-value { color: #e2e8f0; }
+        body.dark-mode .wschart-track { background: #0f172a; }
+        /* Re-tint a handful of hardcoded light-theme inline text colors used inside the
+           dynamically-rendered pipeline rows/history log, so they stay readable on dark backgrounds */
+        body.dark-mode [style*="color:#1e3a8a"] { color: #60a5fa !important; }
+        body.dark-mode [style*="color:#64748b"] { color: #94a3b8 !important; }
     </style>
 </head>
 <body>
@@ -178,12 +230,26 @@
             <div class="login-error" id="loginError">Invalid username or password.</div>
         </form>
         <div class="login-hint">Use your Technicians sheet credentials to sign in.</div>
+        <div class="theme-toggle-wrap" style="justify-content:center; margin-top:14px;">
+            <label class="switch">
+                <input type="checkbox" id="darkModeToggleLogin" onchange="toggleDarkMode(this.checked)">
+                <span class="slider"></span>
+            </label>
+            🌙 Dark Mode
+        </div>
     </div>
 </div>
 
 <div class="session-bar" id="sessionBar" style="display:none;">
     <span>👤 Logged in as <strong id="loggedInTechName">—</strong></span>
     <div style="display:flex; align-items:center; gap:10px;">
+        <div class="theme-toggle-wrap">
+            <label class="switch">
+                <input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode(this.checked)">
+                <span class="slider"></span>
+            </label>
+            🌙 Dark Mode
+        </div>
         <div class="notif-bell-wrap">
             <button type="button" class="btn-notif-bell" onclick="toggleNotifPanel()">🔔 <span class="notif-badge" id="notifBadge" style="display:none;">0</span></button>
             <div class="notif-panel" id="notifPanel" style="display:none;">
@@ -318,16 +384,16 @@
             <div class="metric-card" style="background:#7c3aed;"><div class="metric-title">Warranty Claimed</div><div id="mWarrantyClaimed" class="metric-value">0</div></div>
         </div>
 
+        <div class="card" style="margin-bottom:20px;">
+            <h2>🏭 Jobs by Workshop <span style="font-size:11px; font-weight:400; color:#94a3b8; text-transform:none;">(reflects current filters)</span></h2>
+            <div id="workshopChartBars"></div>
+        </div>
+
         <div class="controls-bar">
-            <input type="text" id="fJobNum" placeholder="Search Job #" oninput="renderPipelineTable()">
-            <input type="text" id="fPhoneNum" placeholder="Search Phone..." oninput="renderPipelineTable()">
-            <div style="position:relative;">
-                <input type="text" id="fCustomerName" placeholder="Search Customer Name..." oninput="renderPipelineTable(); triggerSuggestion('fCustomerName', this.value)" autocomplete="off" style="width:100%; box-sizing:border-box;">
-                <div class="suggest-dropdown" id="suggest-fCustomerName"></div>
-            </div>
-            <div style="position:relative;">
-                <input type="text" id="fSerial" placeholder="Search Serial #..." oninput="renderPipelineTable(); triggerSuggestion('fSerial', this.value)" autocomplete="off" style="width:100%; box-sizing:border-box;">
-                <div class="suggest-dropdown" id="suggest-fSerial"></div>
+            <input type="text" id="fJobNum" placeholder="🔎 Search Job # (separate)" oninput="renderPipelineTable()">
+            <div style="position:relative; grid-column: span 2;">
+                <input type="text" id="fQuickSearch" placeholder="🔍 Search Phone, Customer, Model, Serial # or Fault..." oninput="renderPipelineTable(); triggerSuggestion('fQuickSearch', this.value)" autocomplete="off" style="width:100%; box-sizing:border-box;">
+                <div class="suggest-dropdown" id="suggest-fQuickSearch"></div>
             </div>
             <select id="fItemType" onchange="renderPipelineTable()">
                 <option value="ALL">All Categories</option>
@@ -387,6 +453,25 @@
 
 <script>
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbytDEJQNBfn1shoA5Ig5y8I1Vc4WzjuY6C451Pdte-MGZj93CcpAjUwyI050ss6cbs1/exec"; 
+
+    // ── Dark Mode ────────────────────────────────────────────────────────────
+    const DARK_MODE_KEY = 'sap_dark_mode';
+    function applyDarkModePreference() {
+        const isDark = localStorage.getItem(DARK_MODE_KEY) === '1';
+        document.body.classList.toggle('dark-mode', isDark);
+        const t1 = document.getElementById('darkModeToggle'); if (t1) t1.checked = isDark;
+        const t2 = document.getElementById('darkModeToggleLogin'); if (t2) t2.checked = isDark;
+    }
+    function toggleDarkMode(isChecked) {
+        document.body.classList.toggle('dark-mode', isChecked);
+        localStorage.setItem(DARK_MODE_KEY, isChecked ? '1' : '0');
+        // Keep the login-screen switch and the in-app switch in sync with each other
+        const t1 = document.getElementById('darkModeToggle'); if (t1) t1.checked = isChecked;
+        const t2 = document.getElementById('darkModeToggleLogin'); if (t2) t2.checked = isChecked;
+    }
+    document.addEventListener('DOMContentLoaded', applyDarkModePreference);
+    // ─────────────────────────────────────────────────────────────────────────
+
     let jobsCacheArray = []; let openAdminHistoryTracker = null;
     let currentFilteredJobs = []; // tracks whatever is currently visible after filters, used by report generator
     const AUTH_SESSION_KEY = 'sap_admin_session';
@@ -514,11 +599,40 @@ function createJitteredPoller(fn, baseMs, jitterMs) {
         document.getElementById('mWarrantyClaimed').innerText = stats.WarrantyClaimed;
     }
 
+    // Small "Jobs by Workshop" bar chart — counts the currently filtered jobs by
+    // workshop location, grouping any job with no workshop set under "Unassigned".
+    function renderWorkshopChart(filteredJobs) {
+        const container = document.getElementById('workshopChartBars');
+        if (!container) return;
+
+        const counts = {};
+        filteredJobs.forEach(job => {
+            const key = (job.workshop && job.workshop.trim()) ? job.workshop.trim() : 'Unassigned';
+            counts[key] = (counts[key] || 0) + 1;
+        });
+
+        const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+        if (entries.length === 0) {
+            container.innerHTML = '<div style="font-size:12px; color:#94a3b8; text-align:center; padding:6px 0;">No jobs match the current filters.</div>';
+            return;
+        }
+
+        const maxCount = Math.max(...entries.map(e => e[1]));
+        container.innerHTML = entries.map(([name, count]) => {
+            const pct = maxCount > 0 ? Math.round((count / maxCount) * 100) : 0;
+            const barColor = name === 'Unassigned' ? '#ea580c' : '#2563eb';
+            const safeName = name.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return `<div class="wschart-row">
+                <span class="wschart-label" title="${safeName}">${safeName}</span>
+                <div class="wschart-track"><div class="wschart-fill" style="width:${pct}%; background:${barColor};"></div></div>
+                <span class="wschart-value">${count}</span>
+            </div>`;
+        }).join('');
+    }
+
     function resetAllFilters() {
         document.getElementById('fJobNum').value = '';
-        document.getElementById('fPhoneNum').value = '';
-        document.getElementById('fCustomerName').value = '';
-        document.getElementById('fSerial').value = '';
+        document.getElementById('fQuickSearch').value = '';
         document.getElementById('fItemType').value = 'ALL';
         document.getElementById('fWorkshop').value = 'ALL';
         document.getElementById('fTech').value = 'ALL';
@@ -531,9 +645,7 @@ function createJitteredPoller(fn, baseMs, jitterMs) {
 
     function renderPipelineTable() {
         const sJob = document.getElementById('fJobNum').value.trim();
-        const sPhone = document.getElementById('fPhoneNum').value.trim();
-        const sCustomer = document.getElementById('fCustomerName').value.trim().toLowerCase();
-        const sSerial = document.getElementById('fSerial').value.trim().toLowerCase();
+        const sQuick = document.getElementById('fQuickSearch').value.trim().toLowerCase();
         const sItemType = document.getElementById('fItemType').value;
         const sWork = document.getElementById('fWorkshop').value; 
         const sTech = document.getElementById('fTech').value; 
@@ -558,9 +670,16 @@ function createJitteredPoller(fn, baseMs, jitterMs) {
 
         jobsCacheArray.forEach(job => {
             if(sJob && !job.jobNum.toString().includes(sJob)) return;
-            if(sPhone && job.mobile && !job.mobile.toString().includes(sPhone)) return;
-            if(sCustomer && !(job.customer || '').toLowerCase().includes(sCustomer)) return;
-            if(sSerial && !(job.serial || '').toLowerCase().includes(sSerial)) return;
+            if(sQuick) {
+                const quickHaystack = [
+                    job.mobile ? job.mobile.toString() : '',
+                    job.customer || '',
+                    job.serial || '',
+                    job.model || '',
+                    job.fault || ''
+                ].join(' | ').toLowerCase();
+                if(!quickHaystack.includes(sQuick)) return;
+            }
             if(sItemType !== "ALL" && job.itemType !== sItemType) return;
             if(sWork !== "ALL" && job.workshop !== sWork) return;
             if(sTech !== "ALL" && job.tech !== sTech) return;
@@ -642,6 +761,7 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
 
         // Instantly update the metrics cards with filtered dataset criteria
         calculateFilteredCounters(matchingJobsList);
+        renderWorkshopChart(matchingJobsList);
         // Keep a reference so "Generate Report" always reports on what's currently visible
         currentFilteredJobs = matchingJobsList;
     }
@@ -1059,8 +1179,13 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         'model':           job => job.model || '',
         'serial':          job => job.serial || '',
         'fault':           job => job.fault || '',
-        'fCustomerName':   job => job.customer || '',
-        'fSerial':         job => job.serial || ''
+        'fQuickSearch':    job => [
+            job.mobile ? job.mobile.toString() : '',
+            job.customer || '',
+            job.serial || '',
+            job.model || '',
+            job.fault || ''
+        ]
     };
 
     function triggerSuggestion(fieldId, rawValue) {
@@ -1077,12 +1202,15 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         const matches = [];
         jobsCacheArray.forEach(job => {
             const candidate = extractor(job);
-            if (!candidate) return;
-            const candidateLow = candidate.toLowerCase();
-            if (candidateLow.includes(val) && !seen.has(candidate)) {
-                seen.add(candidate);
-                matches.push(candidate);
-            }
+            const candidateList = Array.isArray(candidate) ? candidate : [candidate];
+            candidateList.forEach(c => {
+                if (!c) return;
+                const candidateLow = c.toLowerCase();
+                if (candidateLow.includes(val) && !seen.has(c)) {
+                    seen.add(c);
+                    matches.push(c);
+                }
+            });
         });
 
         if (matches.length === 0) { dropdown.style.display = 'none'; dropdown.innerHTML = ''; return; }
@@ -1105,7 +1233,7 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         // If mobile was picked, auto-run the customer lookup
         if (fieldId === 'mobile') lookupReturningCustomer();
         // If a filter bar field was picked, re-render the table
-        if (fieldId === 'fCustomerName' || fieldId === 'fSerial') renderPipelineTable();
+        if (fieldId === 'fQuickSearch') renderPipelineTable();
     }
 
     // Close all dropdowns when clicking outside

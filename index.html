@@ -323,7 +323,7 @@
                 <div class="form-group">
                     <label>Mobile Number</label>
                     <div class="inline-search-group">
-                        <input type="text" id="mobile" placeholder="Enter phone..71XXXXXXX" required="" autocomplete="off" oninput="triggerSuggestion('mobile', this.value)">
+                        <input type="text" id="mobile" placeholder="Enter phone..." required="" autocomplete="off" oninput="triggerSuggestion('mobile', this.value)">
                         <button type="button" class="btn-search" onclick="lookupReturningCustomer()">🔍 Check Customer</button>
                     </div>
                     <div class="suggest-dropdown" id="suggest-mobile"></div>
@@ -537,7 +537,7 @@
         phone: "Hotline: 033-7294388 / 076-7119438 / 071-8176220",
         email: "saptechnology.info@gmail.com",
         terms: [
-            "Items not collected within 90 days will not be guaranteed for repair,replacement or your device.",
+            "Items not collected within 90 days will not be guaranteed for repair or replacement.",
             "Company is not responsible for any data loss.",
             "Repair charges are payable on collection.",
             "Please bring this job card when collecting your item."
@@ -545,6 +545,14 @@
     };
 
     let lastRegisteredJob = null; // holds data for the most recently registered ticket, used for printing
+
+    // ── Customer Status Portal (QR on Job Card) ─────────────────────────────
+    // Point this at wherever Customer_Status.html is hosted (e.g. GitHub
+    // Pages, or another Apps Script Web App deployment). The QR code printed
+    // on every job card links here with the job's mobile + job number baked
+    // in, so scanning it drops the customer straight into their job timeline
+    // with no typing required.
+    const CUSTOMER_PORTAL_URL = "https://sapsoft14-lgtm.github.io/CustomerPortal/";
     // ─────────────────────────────────────────────────────────────────────────
 
     // ── Repair Estimate Range Helpers ───────────────────────────────────
@@ -1258,9 +1266,30 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         };
     }
 
+    // Builds the customer-portal link for a given job: pre-fills both the
+    // mobile number and job number so scanning the QR jumps straight to that
+    // job's timeline with zero typing. (The mobile number is already printed
+    // in plain text elsewhere on this same card, so baking it into the QR
+    // link doesn't expose anything the physical card doesn't already show.)
+    function buildCustomerStatusUrl(job) {
+        const params = new URLSearchParams({ mobile: job.mobile || '', job: job.jobNum || '' });
+        return `${CUSTOMER_PORTAL_URL}?${params.toString()}`;
+    }
+
+    // Renders a <img> tag pointing at a hosted QR-code generator for the
+    // given URL. Uses api.qrserver.com (free, no key/library needed) — same
+    // "just point an <img> at a URL" pattern already used for Drive photo
+    // thumbnails elsewhere in this file. Requires the print window to have
+    // internet access, which it already needs for everything else on load.
+    function buildQrImgTag(url, sizePx) {
+        const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=${sizePx}x${sizePx}&margin=0&data=${encodeURIComponent(url)}`;
+        return `<img class="qr-img" src="${qrSrc}" alt="Scan to check job status" width="${sizePx}" height="${sizePx}">`;
+    }
+
     // Renders the markup for a single physical card sheet (one copy).
     // copyLabel is stamped on the card, e.g. "CUSTOMER COPY" or "OFFICE COPY".
     function buildCardSheetMarkup(job, copyLabel, esc, termsListHtml) {
+        const statusUrl = buildCustomerStatusUrl(job);
         return `
     <div class="card-sheet print-page">
         <div class="copy-tag">${esc(copyLabel)}</div>
@@ -1276,6 +1305,14 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         </div>
 
         <div class="card-title">Repair / Service Job Card</div>
+
+        <div class="qr-status-box">
+            ${buildQrImgTag(statusUrl, 78)}
+            <div class="qr-status-text">
+                <div class="qr-status-title">Track Your Repair Online</div>
+                <div class="qr-status-sub">Scan this code anytime to see live job status &amp; history.</div>
+            </div>
+        </div>
 
         <div class="field-row"><div class="f-label">Customer Name</div><div class="f-value">${esc(job.customerName)}</div></div>
         <div class="field-row"><div class="f-label">Mobile Number</div><div class="f-value">${esc(job.mobile)}</div></div>
@@ -1345,6 +1382,12 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
     .job-num-box .num { font-size: 22px; font-weight: 800; color: #ea580c; }
 
     .card-title { text-align: center; font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #1e293b; margin: 4px 0 10px 0; }
+
+    .qr-status-box { display: flex; align-items: center; gap: 10px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 7px 10px; margin-bottom: 10px; }
+    .qr-status-box .qr-img { flex-shrink: 0; display: block; background: #fff; padding: 3px; border-radius: 3px; }
+    .qr-status-text { font-size: 9.5px; color: #1e3a8a; line-height: 1.4; }
+    .qr-status-title { font-weight: 800; font-size: 11px; }
+    .qr-status-sub { color: #475569; margin-top: 1px; }
 
     .field-row { display: flex; border-bottom: 1px dotted #cbd5e1; padding: 5px 0; font-size: 12px; }
     .field-row .f-label { width: 38%; font-weight: 700; color: #475569; text-transform: uppercase; font-size: 10px; }

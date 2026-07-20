@@ -37,7 +37,8 @@
         .btn-search:hover { background-color: #1e40af; }
         
         .btn-blue { background-color: #059669; color: white; padding: 11px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 5px; transition: opacity .15s; }
-        .btn-orange { background-color: #ea580c; color: white; padding: 11px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; }
+        .btn-orange { background-color: #ea580c; color: white; padding: 11px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; transition: opacity .15s; }
+        .btn-orange:disabled { opacity: 0.75; cursor: not-allowed; }
 
         /* Register Ticket - loading/generating animation */
         .btn-blue:disabled { opacity: 0.75; cursor: not-allowed; }
@@ -64,6 +65,14 @@
         .pipeline-table { width: 100%; border-collapse: collapse; min-width: 750px; font-size: 13px; }
         .pipeline-table th { background: #f8fafc; border-bottom: 2px solid #e2e8f0; text-align: left; padding: 12px; }
         .pipeline-table td { padding: 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+
+        /* Selectable Job Cards -> Administration Modify Overrides auto-fill */
+        .job-row-selectable { cursor: pointer; transition: background-color .15s; }
+        .job-row-selectable:hover { background-color: #f8fafc; }
+        .job-row-selected { background-color: #eff6ff; box-shadow: inset 4px 0 0 #1e3a8a; }
+        .job-row-selected:hover { background-color: #eff6ff; }
+        .job-selected-badge { display: none; background: #1e3a8a; color: white; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 20px; margin-bottom: 10px; }
+        #overrideForm.has-selection .job-selected-badge { display: inline-flex; align-items: center; gap: 6px; }
         
         /* Status Tags Styling Matrix */
         .status-tag { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; color: white; display: inline-block; white-space: nowrap; }
@@ -219,6 +228,9 @@
         body.dark-mode .table-responsive-wrapper { background: #1e293b; border-color: #334155; }
         body.dark-mode .pipeline-table th { background: #0f172a; border-bottom-color: #334155; color: #93c5fd; }
         body.dark-mode .pipeline-table td { border-bottom-color: #334155; color: #e2e8f0; }
+        body.dark-mode .job-row-selectable:hover { background-color: #1e293b; }
+        body.dark-mode .job-row-selected { background-color: #1e3a5f; box-shadow: inset 4px 0 0 #60a5fa; }
+        body.dark-mode .job-row-selected:hover { background-color: #1e3a5f; }
         body.dark-mode .suggest-dropdown { background: #1e293b; border-color: #334155; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
         body.dark-mode .suggest-item { color: #e2e8f0; border-bottom-color: #334155; }
         body.dark-mode .suggest-item:hover, body.dark-mode .suggest-item.active { background: #334155; color: #93c5fd; }
@@ -381,7 +393,11 @@
         <div class="card">
             <h2>🔄 Administration Modify Overrides</h2>
             <form id="overrideForm">
-                <div class="form-group"><label>Job #</label><input type="number" id="oJobNum" required=""></div>
+                <div class="job-selected-badge" id="overrideSelectedBadge">
+                    ✓ Loaded from Job Card #<span id="overrideSelectedBadgeNum"></span>
+                    <span onclick="clearOverrideSelection()" style="cursor:pointer; font-weight:900; margin-left:2px;" title="Clear">✕</span>
+                </div>
+                <div class="form-group"><label>Job # <span style="font-weight:400; color:#94a3b8; text-transform:none;">— or click a job card below to auto-fill</span></label><input type="number" id="oJobNum" required=""></div>
                 <div class="row">
                     <div class="form-group"><label>Workshop Location</label><select id="oWorkshop"><option value="">Override Location</option><option value="SAP -  Shop 14">SAP -  Shop 14</option><option value="kalagedihen prj">kalagedihen prj</option><option value="Mr. Gayan - Kadawatha">Mr. Gayan - Kadawatha</option><option value="SAP - Shop 68">SAP - Shop 68</option><option value="SAP CCTV Shop Gampaha">SAP CCTV Shop Gampaha</option><option value="Smart Technology">Smart Technology</option><option value="Ishika - Udigampola">Ishika - Udigampola</option></select></div>
                     <div class="form-group"><label>Tech Assignment</label><select id="oTech"><option value="">Assign Person</option><option value="WM Nayanajijth">WM Nayanajijth</option><option value="Supun Samarasinghe">Supun Samarasinghe</option><option value="Isuru Lakshitha">Isuru Lakshitha</option><option value="Ayesh Harshana">Ayesh Harshana</option><option value="Dilka Dulakshana">Dilka Dulakshana</option><option value="Front Officer">Front Officer</option><option value="Chamith Sandeepa">Chamith Sandeepa</option><option value="Pradeep Kaushalya">Pradeep Kaushalya</option></select></div>
@@ -404,7 +420,7 @@
                     <label>Admin Comment <span style="font-weight:400; color:#94a3b8;">— optional, saved to job history</span></label>
                     <textarea id="oComment" rows="2" placeholder="Reason for this override / note for the record..."></textarea>
                 </div>
-                <button type="submit" class="btn-orange">Execute Force Override</button>
+                <button type="submit" id="executeOverrideBtn" class="btn-orange">Execute Force Override</button>
             </form>
         </div>
     </div>
@@ -475,7 +491,7 @@
                 <option value="SHOW">Show Handed Over Only</option>
                 <option value="ALL">Show All Combined</option>
             </select>
-            <button onclick="fetchLivePipelineData()" style="background:#64748b; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; width: 100%;">🔄 Sync</button>
+            <button id="syncPipelineBtn" onclick="fetchLivePipelineData()" style="background:#64748b; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; width: 100%; transition: opacity .15s;">🔄 Sync</button>
         </div>
 
         <!-- Date Range Filter Bar -->
@@ -527,6 +543,7 @@
 
     let jobsCacheArray = []; let openAdminHistoryTracker = null;
     let currentFilteredJobs = []; // tracks whatever is currently visible after filters, used by report generator
+    let selectedOverrideJobNum = null; // tracks which job card is currently selected for the Modify Overrides panel
     const AUTH_SESSION_KEY = 'sap_admin_session';
 
     // ── Job Card Print Configuration ───────────────────────────────────────
@@ -618,12 +635,26 @@ function createJitteredPoller(fn, baseMs, jitterMs) {
     }
 
     function fetchLivePipelineData() {
+        // ── Show "syncing" animation on the Sync button while data loads ──
+        const syncBtn = document.getElementById('syncPipelineBtn');
+        let syncBtnOriginalHtml = null;
+        if (syncBtn) {
+            syncBtnOriginalHtml = syncBtn.innerHTML;
+            syncBtn.disabled = true;
+            syncBtn.style.opacity = '0.75';
+            syncBtn.style.cursor = 'not-allowed';
+            syncBtn.innerHTML = '<span class="btn-spinner"></span>Syncing...';
+        }
+        // ────────────────────────────────────────────────────────────────
+
         fetch(`${WEB_APP_URL}?action=getAdminPipeline`).then(res => res.json()).then(data => {
             if(data.success) {
                 jobsCacheArray = data.jobs;
                 renderPipelineTable();
                 updateNextJobPreview();
             }
+        }).finally(() => {
+            if (syncBtn) { syncBtn.disabled = false; syncBtn.style.opacity = ''; syncBtn.style.cursor = 'pointer'; syncBtn.innerHTML = syncBtnOriginalHtml; }
         });
     }
 
@@ -869,6 +900,11 @@ function createJitteredPoller(fn, baseMs, jitterMs) {
 
             const isHistoryOpen = (openAdminHistoryTracker === job.jobNum) ? "block" : "none";
             const tr = document.createElement('tr');
+            tr.dataset.jobnum = job.jobNum;
+            tr.classList.add('job-row-selectable');
+            if (selectedOverrideJobNum === job.jobNum) tr.classList.add('job-row-selected');
+            tr.title = "Click to load this job into Administration Modify Overrides";
+            tr.onclick = function() { selectJobForOverride(job.jobNum); };
             
             const handoverChecked = job.isHandedOver ? "checked" : "";
             const handoverTimeLabel = job.handoverTime ? `<br><span style="font-size:10px; color:#059669;">📦 Handed Over: ${job.handoverTime}</span>` : "";
@@ -903,24 +939,24 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
                             <td style="width:20%; padding:12px;">
                                 <span class="status-tag status-${job.status.replace(/\s+/g, '')}">${job.status}</span>
                                 ${handoverTimeLabel}
-                                <div class="switch-container">
+                                <div class="switch-container" onclick="event.stopPropagation()">
                                     <label class="switch">
                                         <input type="checkbox" ${handoverChecked} onchange="toggleHandoverStateSubmit(${job.jobNum}, this.checked)">
                                         <span class="slider"></span>
                                     </label>
                                     <span>Handover</span>
                                 </div>
-                                <a class="history-link" onclick="toggleAdminHistoryPane(${job.jobNum})">🔍 View History</a>
-                                <a class="history-link" style="color:#1e3a8a; margin-left:10px;" onclick="reprintJobCard(${job.jobNum})">🖨️ Reprint Card</a>
+                                <a class="history-link" onclick="event.stopPropagation(); toggleAdminHistoryPane(${job.jobNum})">🔍 View History</a>
+                                <a class="history-link" style="color:#1e3a8a; margin-left:10px;" onclick="event.stopPropagation(); reprintJobCard(${job.jobNum})">🖨️ Reprint Card</a>
                                 <br>
-                                <button type="button" id="informedBtn-${job.jobNum}" class="btn-informed" onclick="markCustomerInformedSubmit(${job.jobNum}, this)">
+                                <button type="button" id="informedBtn-${job.jobNum}" class="btn-informed" onclick="event.stopPropagation(); markCustomerInformedSubmit(${job.jobNum}, this)">
                                     📣 Customer Informed${job.informedCount ? ` <span class="informed-count-badge">${job.informedCount}</span>` : ''}
                                 </button>
                                 ${job.informedLastDate ? `<div class="informed-label" id="informedLastLabel-${job.jobNum}">Last informed: ${job.informedLastDate}</div>` : `<div class="informed-label" id="informedLastLabel-${job.jobNum}"></div>`}
                             </td>
                         </tr>
                     </table>
-                    <div class="history-inline-panel" id="history-panel-${job.jobNum}" style="display: ${isHistoryOpen};"></div>
+                    <div class="history-inline-panel" id="history-panel-${job.jobNum}" style="display: ${isHistoryOpen};" onclick="event.stopPropagation()"></div>
                 </td>
             `;
             container.appendChild(tr);
@@ -933,6 +969,41 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         renderOldestJobsSlideshow(matchingJobsList);
         // Keep a reference so "Generate Report" always reports on what's currently visible
         currentFilteredJobs = matchingJobsList;
+    }
+
+    // NEW: Click a job card in the pipeline table -> auto-load its data into the
+    // Administration Modify Overrides panel (Job #, Workshop, Tech, Status).
+    function selectJobForOverride(jobNum) {
+        const job = jobsCacheArray.find(j => j.jobNum == jobNum);
+        if (!job) return;
+
+        document.getElementById('oJobNum').value = job.jobNum;
+        document.getElementById('oWorkshop').value = job.workshop || '';
+        document.getElementById('oTech').value = job.tech || '';
+        document.getElementById('oStatus').value = job.status || 'Pending';
+        document.getElementById('oComment').value = '';
+
+        selectedOverrideJobNum = job.jobNum;
+
+        const form = document.getElementById('overrideForm');
+        form.classList.add('has-selection');
+        document.getElementById('overrideSelectedBadgeNum').innerText = job.jobNum;
+
+        // Highlight the selected card, clear highlight from any previously selected one
+        document.querySelectorAll('#pipelineRowsContainer tr').forEach(row => {
+            row.classList.toggle('job-row-selected', row.dataset.jobnum == jobNum);
+        });
+
+        // Bring the override panel into view so the auto-filled data is visible
+        form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function clearOverrideSelection() {
+        selectedOverrideJobNum = null;
+        document.getElementById('overrideForm').classList.remove('has-selection');
+        document.getElementById('overrideForm').reset();
+        document.getElementById('oStatus').value = 'Pending';
+        document.querySelectorAll('#pipelineRowsContainer tr').forEach(row => row.classList.remove('job-row-selected'));
     }
 
     function toggleHandoverStateSubmit(jobNum, isChecked) {
@@ -1446,8 +1517,17 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
 
     document.getElementById('overrideForm').addEventListener('submit', function(e) {
         e.preventDefault();
+
+        // ── Show "executing" animation on the Execute Force Override button ──
+        const execBtn = document.getElementById('executeOverrideBtn');
+        const execBtnOriginalHtml = execBtn.innerHTML;
+        execBtn.disabled = true;
+        execBtn.innerHTML = '<span class="btn-spinner"></span>Executing Override...';
+        // ───────────────────────────────────────────────────────────────────
+
         fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: "adminModifyJob", jobNum: document.getElementById('oJobNum').value.trim(), workshop: document.getElementById('oWorkshop').value, tech: document.getElementById('oTech').value, status: document.getElementById('oStatus').value, comment: document.getElementById('oComment').value.trim() }) })
-        .then(res => res.json()).then(data => { if(data.success) { document.getElementById('overrideForm').reset(); fetchLivePipelineData(); } });
+        .then(res => res.json()).then(data => { if(data.success) { document.getElementById('overrideForm').reset(); document.getElementById('overrideForm').classList.remove('has-selection'); selectedOverrideJobNum = null; fetchLivePipelineData(); } })
+        .finally(() => { execBtn.disabled = false; execBtn.innerHTML = execBtnOriginalHtml; });
     });
 
     // ── Autocomplete Suggestion Engine ────────────────────────────────────────

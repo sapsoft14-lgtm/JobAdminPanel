@@ -44,6 +44,30 @@
         .btn-blue:disabled { opacity: 0.75; cursor: not-allowed; }
         .btn-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.45); border-top-color: #ffffff; border-radius: 50%; vertical-align: middle; margin-right: 8px; animation: btnSpin 0.7s linear infinite; }
         @keyframes btnSpin { to { transform: rotate(360deg); } }
+
+        /* ── Toast notification system ─────────────────────────────────── */
+        .toast-stack { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column-reverse; gap: 10px; max-width: 340px; }
+        @media (max-width: 480px) {
+            .toast-stack { left: 12px; right: 12px; bottom: 12px; max-width: none; }
+        }
+        .toast-item { background: #1e293b; color: white; padding: 12px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; box-shadow: 0 6px 18px rgba(0,0,0,0.18); display: flex; align-items: flex-start; gap: 10px; animation: toastIn .22s ease-out; border-left: 4px solid #64748b; }
+        .toast-item.toast-success { border-left-color: #059669; }
+        .toast-item.toast-error { border-left-color: #ef476f; }
+        .toast-item.toast-info { border-left-color: #2563eb; }
+        .toast-item.toast-leaving { animation: toastOut .18s ease-in forwards; }
+        .toast-icon { flex-shrink: 0; }
+        .toast-msg { flex: 1; line-height: 1.4; }
+        .toast-close { cursor: pointer; opacity: .6; font-weight: 900; flex-shrink: 0; }
+        .toast-close:hover { opacity: 1; }
+        @keyframes toastIn { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes toastOut { to { opacity: 0; transform: translateX(20px); } }
+
+        /* ── Row flash highlight after an override is applied ─────────── */
+        @keyframes rowFlashHighlight {
+            0%   { background-color: #fed7aa; }
+            100% { background-color: transparent; }
+        }
+        .row-flash-highlight td { animation: rowFlashHighlight 1.6s ease-out; }
         
         /* Fluid Metrics Grid Engine */
         .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
@@ -257,6 +281,9 @@
 </head>
 <body>
 
+<!-- ── Toast notification stack (non-blocking success/error messages) ─── -->
+<div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+
 <!-- ── Login Gate (blocks access until valid technician/admin login) ──── -->
 <div id="loginGate" class="login-gate">
     <div class="login-box">
@@ -302,7 +329,7 @@
             🖥️ Desktop Alerts
         </div>
         <div class="notif-bell-wrap">
-            <button type="button" class="btn-notif-bell" onclick="toggleNotifPanel()">🔔 <span class="notif-badge" id="notifBadge" style="display:none;">0</span></button>
+            <button type="button" class="btn-notif-bell" onclick="toggleNotifPanel()" aria-label="View recent job update notifications">🔔 <span class="notif-badge" id="notifBadge" style="display:none;">0</span></button>
             <div class="notif-panel" id="notifPanel" style="display:none;">
                 <div class="notif-panel-header">
                     <span>🔔 Recent Job Updates</span>
@@ -395,7 +422,7 @@
             <form id="overrideForm">
                 <div class="job-selected-badge" id="overrideSelectedBadge">
                     ✓ Loaded from Job Card #<span id="overrideSelectedBadgeNum"></span>
-                    <span onclick="clearOverrideSelection()" style="cursor:pointer; font-weight:900; margin-left:2px;" title="Clear">✕</span>
+                    <span onclick="clearOverrideSelection()" role="button" tabindex="0" aria-label="Clear selected job" style="cursor:pointer; font-weight:900; margin-left:2px;" title="Clear">✕</span>
                 </div>
                 <div class="form-group"><label>Job # <span style="font-weight:400; color:#94a3b8; text-transform:none;">— or click a job card below to auto-fill</span></label><input type="number" id="oJobNum" required=""></div>
                 <div class="row">
@@ -450,9 +477,9 @@
                 <div class="oldest-jobs-slideshow" id="oldestJobsSlideshow" onmouseenter="pauseOldestJobsAutoplay()" onmouseleave="resumeOldestJobsAutoplay()">
                     <div class="oldest-slide-viewport" id="oldestSlideViewport"></div>
                     <div class="oldest-slide-nav" id="oldestSlideNav" style="display:none;">
-                        <button type="button" onclick="stepOldestJobsSlide(-1)">‹</button>
+                        <button type="button" onclick="stepOldestJobsSlide(-1)" aria-label="Previous oldest job">‹</button>
                         <div class="oldest-slide-dots" id="oldestSlideDots"></div>
-                        <button type="button" onclick="stepOldestJobsSlide(1)">›</button>
+                        <button type="button" onclick="stepOldestJobsSlide(1)" aria-label="Next oldest job">›</button>
                     </div>
                 </div>
             </div>
@@ -491,7 +518,15 @@
                 <option value="SHOW">Show Handed Over Only</option>
                 <option value="ALL">Show All Combined</option>
             </select>
-            <button id="syncPipelineBtn" onclick="fetchLivePipelineData()" style="background:#64748b; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; width: 100%; transition: opacity .15s;">🔄 Sync</button>
+            <button id="syncPipelineBtn" onclick="fetchLivePipelineData()" aria-label="Sync pipeline data" style="background:#64748b; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; width: 100%; transition: opacity .15s;">🔄 Sync</button>
+        </div>
+
+        <div style="display:flex; align-items:center; justify-content:flex-end; gap:14px; margin:-10px 0 16px; font-size:11px; color:#94a3b8;">
+            <span id="lastSyncedLabel">Not synced yet</span>
+            <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-weight:700; text-transform:uppercase; letter-spacing:.02em;" title="Automatically re-sync the pipeline every 30 seconds">
+                <input type="checkbox" id="autoSyncToggle" onchange="toggleAutoSync(this.checked)" style="width:auto; margin:0;">
+                Auto-sync (30s)
+            </label>
         </div>
 
         <!-- Date Range Filter Bar -->
@@ -523,6 +558,26 @@
 <script>
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbytDEJQNBfn1shoA5Ig5y8I1Vc4WzjuY6C451Pdte-MGZj93CcpAjUwyI050ss6cbs1/exec"; 
 
+    // ── Toast notifications ─────────────────────────────────────────────────
+    // Lightweight, non-blocking replacement for alert(). type: 'success' | 'error' | 'info'
+    const TOAST_ICONS = { success: '✅', error: '⚠️', info: 'ℹ️' };
+    function showToast(message, type = 'info', durationMs = 4200) {
+        const stack = document.getElementById('toastStack');
+        if (!stack) { alert(message); return; } // fallback safety net
+        const el = document.createElement('div');
+        el.className = `toast-item toast-${type}`;
+        el.innerHTML = `<span class="toast-icon">${TOAST_ICONS[type] || TOAST_ICONS.info}</span><span class="toast-msg"></span><span class="toast-close" title="Dismiss">✕</span>`;
+        el.querySelector('.toast-msg').innerText = message; // textContent to avoid HTML injection
+        const remove = () => {
+            el.classList.add('toast-leaving');
+            setTimeout(() => el.remove(), 200);
+        };
+        el.querySelector('.toast-close').onclick = remove;
+        const timer = setTimeout(remove, durationMs);
+        el.addEventListener('mouseenter', () => clearTimeout(timer));
+        stack.appendChild(el);
+    }
+
     // ── Dark Mode ────────────────────────────────────────────────────────────
     const DARK_MODE_KEY = 'sap_dark_mode';
     function applyDarkModePreference() {
@@ -539,6 +594,7 @@
         const t2 = document.getElementById('darkModeToggleLogin'); if (t2) t2.checked = isChecked;
     }
     document.addEventListener('DOMContentLoaded', applyDarkModePreference);
+    document.addEventListener('DOMContentLoaded', applyAutoSyncPreference);
     // ─────────────────────────────────────────────────────────────────────────
 
     let jobsCacheArray = []; let openAdminHistoryTracker = null;
@@ -647,15 +703,54 @@ function createJitteredPoller(fn, baseMs, jitterMs) {
         }
         // ────────────────────────────────────────────────────────────────
 
-        fetch(`${WEB_APP_URL}?action=getAdminPipeline`).then(res => res.json()).then(data => {
+        return fetch(`${WEB_APP_URL}?action=getAdminPipeline`).then(res => res.json()).then(data => {
             if(data.success) {
                 jobsCacheArray = data.jobs;
                 renderPipelineTable();
                 updateNextJobPreview();
+                updateLastSyncedLabel();
+            } else {
+                showToast('Sync failed: ' + (data.error || 'Unknown error.'), 'error');
             }
+        }).catch(() => {
+            showToast('Network error while syncing pipeline data.', 'error');
         }).finally(() => {
             if (syncBtn) { syncBtn.disabled = false; syncBtn.style.opacity = ''; syncBtn.style.cursor = 'pointer'; syncBtn.innerHTML = syncBtnOriginalHtml; }
         });
+    }
+
+    // ── "Last synced" label ─────────────────────────────────────────────────
+    function updateLastSyncedLabel() {
+        const label = document.getElementById('lastSyncedLabel');
+        if (!label) return;
+        const now = new Date();
+        label.innerText = 'Last synced ' + now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+
+    // ── Auto-sync toggle ────────────────────────────────────────────────────
+    const AUTO_SYNC_KEY = 'sap_auto_sync';
+    const AUTO_SYNC_INTERVAL_MS = 30000;
+    let autoSyncTimer = null;
+
+    function toggleAutoSync(checked) {
+        localStorage.setItem(AUTO_SYNC_KEY, checked ? '1' : '0');
+        if (checked) {
+            if (autoSyncTimer) clearInterval(autoSyncTimer);
+            autoSyncTimer = setInterval(() => {
+                // Skip background syncs while the tab isn't visible to save requests.
+                if (document.visibilityState === 'visible') fetchLivePipelineData();
+            }, AUTO_SYNC_INTERVAL_MS);
+        } else if (autoSyncTimer) {
+            clearInterval(autoSyncTimer);
+            autoSyncTimer = null;
+        }
+    }
+
+    function applyAutoSyncPreference() {
+        const toggle = document.getElementById('autoSyncToggle');
+        const isOn = localStorage.getItem(AUTO_SYNC_KEY) === '1';
+        if (toggle) toggle.checked = isOn;
+        toggleAutoSync(isOn);
     }
 
     function updateNextJobPreview() {
@@ -1020,7 +1115,7 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
             if(data.success) {
                 fetchLivePipelineData();
             } else {
-                alert("Database transmission layer error. Switch reversion executed.");
+                showToast("Database transmission layer error. Switch reversion executed.", "error");
                 fetchLivePipelineData();
             }
         }).catch(() => {
@@ -1045,12 +1140,12 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
                 renderPipelineTable();
                 fetchNotifications();
             } else {
-                alert('Could not update: ' + (data.error || 'Unknown error.'));
+                showToast('Could not update: ' + (data.error || 'Unknown error.'), "error");
                 if (btnEl) btnEl.disabled = false;
             }
         })
         .catch(() => {
-            alert('Network error while updating customer-informed status.');
+            showToast('Network error while updating customer-informed status.', "error");
             if (btnEl) btnEl.disabled = false;
         });
     }
@@ -1097,7 +1192,7 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
             return;
         }
         if (!('Notification' in window)) {
-            alert('Desktop notifications are not supported in this browser.');
+            showToast('Desktop notifications are not supported in this browser.', "error");
             if (toggleEl) toggleEl.checked = false;
             return;
         }
@@ -1115,7 +1210,7 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
                 localStorage.setItem(DESKTOP_NOTIF_ENABLED_KEY, '0');
                 if (toggleEl) toggleEl.checked = false;
                 if (permission === 'denied') {
-                    alert('Notifications are blocked for this site. Enable them in your browser\'s site settings to use Desktop Alerts.');
+                    showToast('Notifications are blocked for this site. Enable them in your browser\'s site settings to use Desktop Alerts.', "error", 6000);
                 }
             }
         });
@@ -1303,12 +1398,12 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
                 printJobCard(printWinHandle);
             } else {
                 if (printWinHandle) printWinHandle.close();
-                alert('Could not register job: ' + (data.error || 'Unknown error.'));
+                showToast('Could not register job: ' + (data.error || 'Unknown error.'), "error");
             }
         })
         .catch(() => {
             if (printWinHandle) printWinHandle.close();
-            alert('Network error while registering job. Please check your connection and try again.');
+            showToast('Network error while registering job. Please check your connection and try again.', "error");
         })
         .finally(() => {
             regBtn.disabled = false;
@@ -1495,14 +1590,14 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
     // in a user-gesture handler) to fill in, instead of opening a fresh one here.
     function openCardPrintWindow(job, existingWin) {
         const printWin = existingWin || window.open('', '_blank', 'width=620,height=880');
-        if (!printWin) { alert('Pop-up blocked. Please allow pop-ups to print the job card.'); return; }
+        if (!printWin) { showToast('Pop-up blocked. Please allow pop-ups to print the job card.', 'error', 6000); return; }
         printWin.document.open();
         printWin.document.write(buildJobCardHtml(job));
         printWin.document.close();
     }
 
     function printJobCard(existingWin) {
-        if (!lastRegisteredJob) { alert('No recently registered job to print. Please register a job first.'); return; }
+        if (!lastRegisteredJob) { showToast('No recently registered job to print. Please register a job first.', 'info'); return; }
         openCardPrintWindow(normalizeJobForCard(lastRegisteredJob), existingWin);
     }
 
@@ -1510,7 +1605,7 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
     // Opens its own window synchronously since this is called directly from a click.
     function reprintJobCard(jobNum) {
         const job = jobsCacheArray.find(j => j.jobNum == jobNum);
-        if (!job) { alert('Could not find that job in the current data. Try syncing first.'); return; }
+        if (!job) { showToast('Could not find that job in the current data. Try syncing first.', 'error'); return; }
         openCardPrintWindow(normalizeJobForCard(job));
     }
     // ─────────────────────────────────────────────────────────────────────────
@@ -1525,10 +1620,34 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         execBtn.innerHTML = '<span class="btn-spinner"></span>Executing Override...';
         // ───────────────────────────────────────────────────────────────────
 
-        fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: "adminModifyJob", jobNum: document.getElementById('oJobNum').value.trim(), workshop: document.getElementById('oWorkshop').value, tech: document.getElementById('oTech').value, status: document.getElementById('oStatus').value, comment: document.getElementById('oComment').value.trim() }) })
-        .then(res => res.json()).then(data => { if(data.success) { document.getElementById('overrideForm').reset(); document.getElementById('overrideForm').classList.remove('has-selection'); selectedOverrideJobNum = null; fetchLivePipelineData(); } })
+        const overriddenJobNum = document.getElementById('oJobNum').value.trim();
+
+        fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: "adminModifyJob", jobNum: overriddenJobNum, workshop: document.getElementById('oWorkshop').value, tech: document.getElementById('oTech').value, status: document.getElementById('oStatus').value, comment: document.getElementById('oComment').value.trim() }) })
+        .then(res => res.json()).then(data => {
+            if(data.success) {
+                document.getElementById('overrideForm').reset();
+                document.getElementById('overrideForm').classList.remove('has-selection');
+                selectedOverrideJobNum = null;
+                showToast(`✓ Override applied to Job #${overriddenJobNum}`, 'success');
+                fetchLivePipelineData().then(() => flashJobRow(overriddenJobNum));
+            } else {
+                showToast('Could not apply override: ' + (data.error || 'Unknown error.'), 'error');
+            }
+        })
+        .catch(() => { showToast('Network error while applying override.', 'error'); })
         .finally(() => { execBtn.disabled = false; execBtn.innerHTML = execBtnOriginalHtml; });
     });
+
+    // Briefly highlights a job's row in the pipeline table after it changes,
+    // so the admin can visually confirm which row was just updated.
+    function flashJobRow(jobNum) {
+        const row = document.querySelector(`tr[data-jobnum="${jobNum}"]`);
+        if (!row) return;
+        row.classList.remove('row-flash-highlight');
+        void row.offsetWidth; // restart animation if it was already applied
+        row.classList.add('row-flash-highlight');
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
 
     // ── Autocomplete Suggestion Engine ────────────────────────────────────────
     // Field map: input id → which job property to search in jobsCacheArray
@@ -1682,7 +1801,7 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
     // ── Filtered Date-Range Report Generator ────────────────────────────
     function generateFilteredReport() {
         if (!currentFilteredJobs || currentFilteredJobs.length === 0) {
-            alert('No jobs match the current filters. Adjust filters and try again.');
+            showToast('No jobs match the current filters. Adjust filters and try again.', 'info');
             return;
         }
         const dateFrom = document.getElementById('fDateFrom').value;
@@ -1748,7 +1867,7 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         </body></html>`;
 
         const win = window.open('', '_blank', 'width=950,height=700');
-        if (!win) { alert('Pop-up blocked. Please allow pop-ups to generate the report.'); return; }
+        if (!win) { showToast('Pop-up blocked. Please allow pop-ups to generate the report.', 'error', 6000); return; }
         win.document.open(); win.document.write(reportHtml); win.document.close();
     }
     // ─────────────────────────────────────────────────────────────────────

@@ -784,6 +784,16 @@
     const CUSTOMER_PORTAL_URL = "https://sapsoft14-lgtm.github.io/CustomerPortal/";
     // ─────────────────────────────────────────────────────────────────────────
 
+    // ── Company Logo (Job Card + Invoice header) ────────────────────────────
+    // Point this at your logo image once it's uploaded to GitHub. Two ways to host it:
+    //   1) GitHub Pages (same site as CustomerPortal above), e.g.:
+    //        https://sapsoft14-lgtm.github.io/CustomerPortal/logo.png
+    //   2) Raw GitHub URL (works even without Pages enabled), e.g.:
+    //        https://raw.githubusercontent.com/<user>/<repo>/main/logo.png
+    // Leave as "" to fall back to the plain "SAP COMPUTERS" text logo.
+    const LOGO_URL = "logo.png";
+    // ─────────────────────────────────────────────────────────────────────────
+
     // ── Repair Estimate Range Helpers ───────────────────────────────────
     function getEstimatePriceRangeString() {
         const min = document.getElementById('estimatePriceMin').value.trim();
@@ -1619,9 +1629,12 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
     <div class="card-sheet print-page">
         <div class="copy-tag">${esc(copyLabel)}</div>
         <div class="card-header">
-            <div>
-                <p class="company-name">${esc(COMPANY_INFO.name)}</p>
-                <div class="company-meta">${esc(COMPANY_INFO.address)}<br>${esc(COMPANY_INFO.phone)} &nbsp;|&nbsp; ${esc(COMPANY_INFO.email)}</div>
+            <div class="card-header-brand">
+                ${LOGO_URL ? `<img class="card-logo" src="${esc(LOGO_URL)}" alt="${esc(COMPANY_INFO.name)} logo">` : ''}
+                <div>
+                    <p class="company-name">${esc(COMPANY_INFO.name)}</p>
+                    <div class="company-meta">${esc(COMPANY_INFO.address)}<br>${esc(COMPANY_INFO.phone)} &nbsp;|&nbsp; ${esc(COMPANY_INFO.email)}</div>
+                </div>
             </div>
             <div class="job-num-box">
                 <div class="label">Job Card No.</div>
@@ -1700,6 +1713,8 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
     .copy-tag { position: absolute; top: 7mm; left: 7mm; background: #1e3a8a; color: #fff; font-size: 9px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; padding: 3px 10px; border-radius: 10px; }
 
     .card-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1e3a8a; padding-bottom: 6px; margin-bottom: 8px; padding-top: 16px; }
+    .card-header-brand { display: flex; align-items: center; gap: 10px; }
+    .card-logo { height: 42px; width: auto; max-width: 120px; object-fit: contain; }
     .company-name { font-size: 17px; font-weight: 800; color: #1e3a8a; margin: 0; }
     .company-meta { font-size: 10px; color: #475569; line-height: 1.4; margin-top: 2px; }
     .job-num-box { text-align: right; }
@@ -1981,13 +1996,17 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         el.innerText = text;
     }
 
-    // Looks up the job's registered Fault / Item Description (the text entered
-    // in the "Fault" field on the Job Registry form) so a brand-new invoice can
-    // start with a pre-filled first line item instead of a blank description.
-    // Falls back to a blank line item if the job can't be found or has no fault text.
+    // Looks up the job's Model/Brand and registered Fault / Item Description
+    // (the text entered on the Job Registry form) so a brand-new invoice can
+    // start with a pre-filled first line item like "HP Laptop 15s — Screen not
+    // turning on" instead of a blank description.
+    // Falls back to whatever pieces are available, or a blank line item if none.
     function firstLineItemFromJob_(jobNum) {
         const job = jobsCacheArray.find(j => String(j.jobNum) === String(jobNum));
-        const desc = job && job.fault ? job.fault.trim() : '';
+        if (!job) return undefined;
+        const model = (job.model || '').trim();
+        const fault = (job.fault || '').trim();
+        const desc = model && fault ? `${model} — ${fault}` : (model || fault);
         return desc ? { desc: desc } : undefined;
     }
 
@@ -2158,6 +2177,8 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
     .sheet { border: 2px solid #0f172a; padding: 6mm; min-height: 194mm; display: flex; flex-direction: column; }
 
     .inv-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 7px; border-bottom: 1.5px solid #0f172a; }
+    .inv-header-brand { display: flex; flex-direction: column; }
+    .inv-logo { height: 34px; width: auto; max-width: 150px; object-fit: contain; margin-bottom: 4px; }
     .brand-logo { font-size: 18px; font-weight: 900; letter-spacing: 0.3px; }
     .brand-logo .sap-orange { color: #ea580c; }
     .brand-logo .sap-dark { color: #0f172a; }
@@ -2202,8 +2223,8 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
 <body>
     <div class="sheet">
         <div class="inv-header">
-            <div>
-                <div class="brand-logo"><span class="sap-orange">SAP</span> <span class="sap-dark">COMPUTERS</span></div>
+            <div class="inv-header-brand">
+                ${LOGO_URL ? `<img class="inv-logo" src="${esc(LOGO_URL)}" alt="${esc(COMPANY_INFO.name)} logo">` : `<div class="brand-logo"><span class="sap-orange">SAP</span> <span class="sap-dark">COMPUTERS</span></div>`}
                 <div class="company-meta">
                     ${esc(COMPANY_INFO.address)}<br>
                     <span class="branches">${esc(COMPANY_INFO.phone)}</span><br>

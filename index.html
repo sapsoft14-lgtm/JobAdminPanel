@@ -149,6 +149,41 @@
         .admin-thumb { width: 50px; height: 50px; object-fit: cover; border-radius: 4px; margin: 5px 5px 0 0; cursor: pointer; border: 1px solid #cbd5e1; background-color: #000; }
         
         .lightbox-modal { display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); align-items: center; justify-content: center; }
+
+        /* ── Admin Tab Nav (Pipeline / Invoices) ─────────────────────────── */
+        .admin-tab-nav { max-width: 1700px; margin: 0 auto 18px; display: flex; gap: 8px; }
+        .admin-tab-btn { background: white; border: 1px solid #e2e8f0; color: #475569; padding: 9px 18px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; transition: all .15s; }
+        .admin-tab-btn:hover { background: #f8fafc; }
+        .admin-tab-btn.active { background: #1e3a8a; color: white; border-color: #1e3a8a; }
+        body.dark-mode .admin-tab-btn { background: #1e293b; border-color: #334155; color: #cbd5e1; }
+        body.dark-mode .admin-tab-btn.active { background: #2563eb; border-color: #2563eb; color: white; }
+
+        /* ── Invoices tab view ────────────────────────────────────────────── */
+        .invoices-container { max-width: 1700px; margin: 0 auto; }
+        .invoice-status-tag { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+        .invoice-status-Paid { background: #d1fae5; color: #059669; }
+        .invoice-status-Partial { background: #fef3c7; color: #b45309; }
+        .invoice-status-Unpaid { background: #fee2e2; color: #b91c1c; }
+        .btn-invoice-link { color: #7c3aed; margin-left: 10px; cursor: pointer; font-size: 11px; font-weight: 700; }
+        .btn-invoice-link:hover { text-decoration: underline; }
+
+        /* ── Invoice editor modal ─────────────────────────────────────────── */
+        .invoice-modal-overlay { display: none; position: fixed; z-index: 10001; left: 0; top: 0; width: 100%; height: 100%; background: rgba(15,23,42,0.55); align-items: flex-start; justify-content: center; overflow-y: auto; padding: 30px 12px; }
+        .invoice-modal-box { background: white; border-radius: 10px; width: 100%; max-width: 780px; padding: 22px; box-shadow: 0 12px 30px rgba(0,0,0,0.25); }
+        body.dark-mode .invoice-modal-box { background: #1e293b; color: #e2e8f0; }
+        .invoice-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+        .invoice-modal-header h2 { margin: 0; border: none; padding: 0; }
+        .invoice-close-x { cursor: pointer; font-size: 22px; font-weight: 900; color: #94a3b8; }
+        .invoice-line-table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px; }
+        .invoice-line-table th { text-align: left; font-size: 10px; text-transform: uppercase; color: #64748b; padding: 4px 6px; }
+        .invoice-line-table td { padding: 4px 6px; }
+        .invoice-line-table input, .invoice-line-table select { padding: 6px; font-size: 12px; }
+        .invoice-line-remove { color: #ef476f; cursor: pointer; font-weight: 900; padding: 0 6px; }
+        .invoice-totals-box { background: #f8fafc; border-radius: 8px; padding: 14px; margin-top: 12px; }
+        body.dark-mode .invoice-totals-box { background: #0f172a; }
+        .invoice-totals-row { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; }
+        .invoice-totals-row.grand-total { font-size: 16px; font-weight: 900; border-top: 1px dashed #cbd5e1; margin-top: 6px; padding-top: 8px; }
+        .btn-add-line { background: #eff6ff; color: #1e3a8a; border: 1px dashed #93c5fd; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; }
         .lightbox-content { max-width: 80%; max-height: 80%; border-radius: 6px; }
         .lightbox-close { position: absolute; top: 20px; right: 30px; color: white; font-size: 35px; font-weight: bold; cursor: pointer; }
         .alert-toast { font-size: 11px; font-weight: bold; margin-top: 4px; display: none; }
@@ -342,7 +377,12 @@
     </div>
 </div>
 
-<div class="dashboard-container">
+<div class="admin-tab-nav">
+    <button type="button" class="admin-tab-btn active" id="tabBtnPipeline" onclick="switchAdminTab('pipeline')">📋 Pipeline</button>
+    <button type="button" class="admin-tab-btn" id="tabBtnInvoices" onclick="switchAdminTab('invoices')">🧾 Invoices</button>
+</div>
+
+<div class="dashboard-container" id="pipelineView">
     <div>
         <div class="card">
             <h2>📝 Job Registry</h2>
@@ -442,6 +482,10 @@
                         <option value="Returned">Returned</option>
                         <option value="Warranty Claimed">Warranty Claimed</option>
                     </select>
+                </div>
+                <div class="row">
+                    <div class="form-group"><label>Repair Estimate Price <span style="font-weight:400; color:#94a3b8; text-transform:none;">— can be a range e.g. 3000 - 5000</span></label><input type="text" id="oEstimatePrice" placeholder="Leave blank to keep unchanged"></div>
+                    <div class="form-group"><label>Final Total Price</label><input type="number" id="oTotalPrice" placeholder="Leave blank to keep unchanged"></div>
                 </div>
                 <div class="form-group">
                     <label>Admin Comment <span style="font-weight:400; color:#94a3b8;">— optional, saved to job history</span></label>
@@ -550,9 +594,121 @@
     </div>
 </div>
 
+<div class="invoices-container" id="invoicesView" style="display:none;">
+    <div class="card">
+        <h2>🧾 Invoices</h2>
+        <div class="controls-bar" style="border-radius:8px; margin-bottom:0;">
+            <input type="text" id="ifSearch" placeholder="🔍 Search Invoice #, Job #, Customer or Mobile..." oninput="renderInvoicesTable()">
+            <select id="ifPaymentStatus" onchange="renderInvoicesTable()">
+                <option value="ALL">All Payment Statuses</option>
+                <option value="Paid">Paid</option>
+                <option value="Partial">Partial</option>
+                <option value="Unpaid">Unpaid</option>
+            </select>
+            <input type="date" id="ifDateFrom" onchange="renderInvoicesTable()" title="From date">
+            <input type="date" id="ifDateTo" onchange="renderInvoicesTable()" title="To date">
+            <button onclick="fetchInvoicesList()" style="background:#64748b; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; width:100%;">🔄 Sync</button>
+        </div>
+    </div>
+    <div class="table-responsive-wrapper">
+        <table class="pipeline-table">
+            <thead><tr><th>Invoice</th><th>Job / Customer</th><th>Amounts</th><th>Payment</th><th>Actions</th></tr></thead>
+            <tbody id="invoicesRowsContainer">
+                <tr><td colspan="5" style="padding:20px; text-align:center; color:#94a3b8;">Click Sync to load invoices…</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
 <div id="adminLightbox" class="lightbox-modal" onclick="closeAdminLightbox()">
     <span class="lightbox-close">×</span>
     <img class="lightbox-content" id="adminLightboxTargetImg">
+</div>
+
+<!-- ── Invoice Editor Modal ─────────────────────────────────────────────── -->
+<div class="invoice-modal-overlay" id="invoiceModalOverlay">
+    <div class="invoice-modal-box">
+        <div class="invoice-modal-header">
+            <h2 id="invoiceModalTitle">🧾 Invoice — Job #<span id="invJobNumLabel"></span></h2>
+            <span class="invoice-close-x" onclick="closeInvoiceModal()">×</span>
+        </div>
+        <div style="font-size:12px; color:#64748b; margin-bottom:10px;">
+            <span id="invCustomerLabel"></span> &nbsp;|&nbsp; <span id="invMobileLabel"></span> &nbsp;|&nbsp; <span id="invItemLabel"></span>
+        </div>
+
+        <table class="invoice-line-table">
+            <thead><tr><th style="width:32%;">Description</th><th style="width:15%;">Price</th><th style="width:15%;">Discount</th><th style="width:12%;">Dis/Price</th><th style="width:10%;">Qty</th><th style="width:16%;">Amount</th><th></th></tr></thead>
+            <tbody id="invoiceLineItemsBody"></tbody>
+        </table>
+        <button type="button" class="btn-add-line" onclick="addInvoiceLineItem()">+ Add Item</button>
+
+        <div class="row" style="margin-top:14px;">
+            <div class="form-group">
+                <label>Warranty Period</label>
+                <select id="invWarrantyPeriod" onchange="recalcInvoiceTotals()">
+                    <option value="">No Warranty</option>
+                    <option value="14 Days">14 Days</option>
+					<option value="03 Months">03 Months</option>
+					<option value="06 Months">06 Months</option>
+                    <option value="01 Year">01 Year</option>
+                    <option value="02 Years">02 Years</option>
+                    <option value="03 Years">03 Years</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Warranty Covers</label>
+                <input type="text" id="invWarrantyNote" placeholder="e.g. Full Service &amp; Repair">
+            </div>
+            <div class="form-group">
+                <label>Warranty S/No</label>
+                <input type="text" id="invWarrantySerial" placeholder="Serial / IMEI number">
+            </div>
+        </div>
+
+        <div class="invoice-totals-box">
+            <div class="invoice-totals-row grand-total"><span>Total</span><span id="invTotalOut">Rs. 0.00</span></div>
+            <div class="invoice-totals-row"><span id="invPaidLabelOut">Cash</span><span id="invAmountPaidOut">Rs. 0.00</span></div>
+            <div class="invoice-totals-row"><span>Balance</span><span id="invBalanceOut">Rs. 0.00</span></div>
+        </div>
+
+        <div class="row" style="margin-top:14px;">
+            <div class="form-group">
+                <label>Amount Paid</label>
+                <input type="number" id="invAmountPaid" value="0" min="0" oninput="recalcInvoiceTotals()">
+            </div>
+            <div class="form-group">
+                <label>Payment Method</label>
+                <select id="invPaymentMethod" onchange="recalcInvoiceTotals()">
+                    <option value="Cash">Cash</option>
+                    <option value="Card">Card</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                    <option value="Online">Online</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Payment Status</label>
+                <div id="invPaymentStatusOut" style="padding-top:8px; font-weight:800;">—</div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Notes</label>
+            <textarea id="invNotes" rows="2" placeholder="Optional notes for this invoice..."></textarea>
+        </div>
+
+        <div class="switch-container" style="margin-top:12px;">
+            <label class="switch">
+                <input type="checkbox" id="invAutoHandoverToggle" checked>
+                <span class="slider"></span>
+            </label>
+            <span>📦 Auto-mark as Handed Over to Customer when this invoice is saved</span>
+        </div>
+
+        <div class="row" style="margin-top:8px;">
+            <button type="button" class="btn-blue" id="invSaveBtn" onclick="saveInvoiceSubmit(false)">💾 Save Invoice</button>
+            <button type="button" class="btn-orange" id="invSavePrintBtn" onclick="saveInvoiceSubmit(true)">💾🖨️ Save &amp; Print</button>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -1043,6 +1199,7 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
                                 </div>
                                 <a class="history-link" onclick="event.stopPropagation(); toggleAdminHistoryPane(${job.jobNum})">🔍 View History</a>
                                 <a class="history-link" style="color:#1e3a8a; margin-left:10px;" onclick="event.stopPropagation(); reprintJobCard(${job.jobNum})">🖨️ Reprint Card</a>
+                                <a class="btn-invoice-link" onclick="event.stopPropagation(); openInvoiceModal(${job.jobNum}, ${JSON.stringify(job.customer || '').replace(/"/g, '&quot;')}, ${JSON.stringify(job.mobile || '').replace(/"/g, '&quot;')}, ${JSON.stringify(job.itemType || '').replace(/"/g, '&quot;')}, ${JSON.stringify(job.model || '').replace(/"/g, '&quot;')})">🧾 Invoice</a>
                                 <br>
                                 <button type="button" id="informedBtn-${job.jobNum}" class="btn-informed" onclick="event.stopPropagation(); markCustomerInformedSubmit(${job.jobNum}, this)">
                                     📣 Customer Informed${job.informedCount ? ` <span class="informed-count-badge">${job.informedCount}</span>` : ''}
@@ -1076,6 +1233,8 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         document.getElementById('oWorkshop').value = job.workshop || '';
         document.getElementById('oTech').value = job.tech || '';
         document.getElementById('oStatus').value = job.status || 'Pending';
+        document.getElementById('oEstimatePrice').value = job.estimatePrice || '';
+        document.getElementById('oTotalPrice').value = job.totalPrice || '';
         document.getElementById('oComment').value = '';
 
         selectedOverrideJobNum = job.jobNum;
@@ -1622,7 +1781,16 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
 
         const overriddenJobNum = document.getElementById('oJobNum').value.trim();
 
-        fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: "adminModifyJob", jobNum: overriddenJobNum, workshop: document.getElementById('oWorkshop').value, tech: document.getElementById('oTech').value, status: document.getElementById('oStatus').value, comment: document.getElementById('oComment').value.trim() }) })
+        fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({
+            action: "adminModifyJob",
+            jobNum: overriddenJobNum,
+            workshop: document.getElementById('oWorkshop').value,
+            tech: document.getElementById('oTech').value,
+            status: document.getElementById('oStatus').value,
+            estimatedPrice: document.getElementById('oEstimatePrice').value.trim(),
+            totalPrice: document.getElementById('oTotalPrice').value.trim(),
+            comment: document.getElementById('oComment').value.trim()
+        }) })
         .then(res => res.json()).then(data => {
             if(data.success) {
                 document.getElementById('overrideForm').reset();
@@ -1721,6 +1889,437 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         });
     });
     // ─────────────────────────────────────────────────────────────────────────
+
+    // ── Invoice System (v11.6) ──────────────────────────────────────────────
+    let allInvoicesList = [];
+    let invoiceLineIdSeq = 0;
+    let currentInvoiceJobNum = null;
+    let currentInvoiceNumOnFile = null; // set when editing an existing invoice
+
+    function switchAdminTab(tab) {
+        const isPipeline = tab === 'pipeline';
+        document.getElementById('pipelineView').style.display = isPipeline ? '' : 'none';
+        document.getElementById('invoicesView').style.display = isPipeline ? 'none' : '';
+        document.getElementById('tabBtnPipeline').classList.toggle('active', isPipeline);
+        document.getElementById('tabBtnInvoices').classList.toggle('active', !isPipeline);
+        if (!isPipeline && allInvoicesList.length === 0) fetchInvoicesList();
+    }
+
+    function addInvoiceLineItem(item) {
+        const id = 'li-' + (invoiceLineIdSeq++);
+        const tbody = document.getElementById('invoiceLineItemsBody');
+        const tr = document.createElement('tr');
+        tr.id = id;
+        const desc = item && item.desc ? item.desc : '';
+        const qty = item && item.qty !== undefined ? item.qty : 1;
+        const price = item && item.price !== undefined ? item.price : (item && item.unitPrice !== undefined ? item.unitPrice : '');
+        const discount = item && item.discount !== undefined ? item.discount : 0;
+        tr.innerHTML = `
+            <td><input type="text" value="${(desc || '').replace(/"/g,'&quot;')}" oninput="recalcInvoiceTotals()" placeholder="e.g. Printer/Scanner Repairing &amp; Service"></td>
+            <td><input type="number" min="0" step="0.01" class="li-price" value="${price}" oninput="recalcInvoiceTotals()"></td>
+            <td><input type="number" min="0" step="0.01" class="li-discount" value="${discount}" oninput="recalcInvoiceTotals()"></td>
+            <td class="line-disprice-out">Rs. 0.00</td>
+            <td><input type="number" min="0" step="1" class="li-qty" value="${qty}" oninput="recalcInvoiceTotals()"></td>
+            <td class="line-amount-out">Rs. 0.00</td>
+            <td><span class="invoice-line-remove" onclick="removeInvoiceLineItem('${id}')">✕</span></td>
+        `;
+        tbody.appendChild(tr);
+        recalcInvoiceTotals();
+    }
+
+    function removeInvoiceLineItem(id) {
+        const row = document.getElementById(id);
+        if (row) row.remove();
+        recalcInvoiceTotals();
+    }
+
+    function readInvoiceLineItemsFromForm() {
+        const rows = document.querySelectorAll('#invoiceLineItemsBody tr');
+        const items = [];
+        rows.forEach(row => {
+            const desc = row.querySelector('td:first-child input').value.trim();
+            const price = Number(row.querySelector('.li-price').value) || 0;
+            const discount = Math.max(0, Math.min(Number(row.querySelector('.li-discount').value) || 0, price));
+            const qty = Number(row.querySelector('.li-qty').value) || 0;
+            const disPrice = Math.max(0, price - discount);
+            const amount = qty * disPrice;
+            row.querySelector('.line-disprice-out').innerText = 'Rs. ' + disPrice.toFixed(2);
+            row.querySelector('.line-amount-out').innerText = 'Rs. ' + amount.toFixed(2);
+            if (desc) items.push({ desc: desc, qty: qty, price: price, discount: discount, unitPrice: disPrice, amount: amount });
+        });
+        return items;
+    }
+
+    function recalcInvoiceTotals() {
+        const items = readInvoiceLineItemsFromForm();
+        const subtotal = items.reduce((s, it) => s + (it.price * it.qty), 0);
+        const discountAmount = items.reduce((s, it) => s + (it.discount * it.qty), 0);
+        const total = items.reduce((s, it) => s + it.amount, 0);
+
+        const amountPaid = Number(document.getElementById('invAmountPaid').value) || 0;
+        const balance = Math.max(0, total - amountPaid);
+        const status = amountPaid <= 0 ? 'Unpaid' : (balance <= 0.01 ? 'Paid' : 'Partial');
+        const paymentMethod = document.getElementById('invPaymentMethod').value || 'Cash';
+
+        document.getElementById('invTotalOut').innerText = 'Rs. ' + total.toFixed(2);
+        document.getElementById('invPaidLabelOut').innerText = paymentMethod;
+        document.getElementById('invAmountPaidOut').innerText = 'Rs. ' + amountPaid.toFixed(2);
+        document.getElementById('invBalanceOut').innerText = 'Rs. ' + balance.toFixed(2);
+        const statusEl = document.getElementById('invPaymentStatusOut');
+        statusEl.innerText = status + (balance > 0 ? ` (Balance Rs. ${balance.toFixed(2)})` : '');
+        statusEl.style.color = status === 'Paid' ? '#059669' : (status === 'Partial' ? '#b45309' : '#b91c1c');
+
+        return { subtotal, discountAmount, total, amountPaid, balance, status, items };
+    }
+
+    // Sets text on an element by id if it exists; warns (instead of throwing)
+    // if it doesn't, so a stale/mismatched page can't silently kill the rest
+    // of openInvoiceModal partway through.
+    function setTextSafe_(id, text) {
+        const el = document.getElementById(id);
+        if (!el) { console.warn(`Invoice modal: expected element #${id} was not found on the page.`); return; }
+        el.innerText = text;
+    }
+
+    function openInvoiceModal(jobNum, customerName, mobile, itemType, model) {
+        currentInvoiceJobNum = jobNum;
+        currentInvoiceNumOnFile = null;
+        setTextSafe_('invJobNumLabel', jobNum);
+        setTextSafe_('invCustomerLabel', '👤 ' + (customerName || 'Client'));
+        setTextSafe_('invMobileLabel', '📞 ' + (mobile || 'N/A'));
+        setTextSafe_('invItemLabel', '🖥️ ' + (itemType || '') + (model ? ' — ' + model : ''));
+        document.getElementById('invoiceLineItemsBody').innerHTML = '';
+        document.getElementById('invWarrantyPeriod').value = '';
+        document.getElementById('invWarrantyNote').value = '';
+        document.getElementById('invWarrantySerial').value = '';
+        document.getElementById('invAmountPaid').value = 0;
+        document.getElementById('invPaymentMethod').value = 'Cash';
+        document.getElementById('invNotes').value = '';
+        document.getElementById('invAutoHandoverToggle').checked = true;
+        setTextSafe_('invoiceModalTitle', `🧾 Loading invoice — Job #${jobNum}...`);
+        document.getElementById('invoiceModalOverlay').style.display = 'flex';
+
+        // Try to prefill from an existing invoice for this job, if one exists.
+        fetch(`${WEB_APP_URL}?action=getInvoiceForJob&jobNum=${jobNum}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && data.invoice) {
+                    const inv = data.invoice;
+                    currentInvoiceNumOnFile = inv.invoiceNum;
+                    setTextSafe_('invoiceModalTitle', `🧾 Invoice #${inv.invoiceNum} — Job #${jobNum}`);
+                    (inv.lineItems || []).forEach(it => addInvoiceLineItem(it));
+                    document.getElementById('invWarrantyPeriod').value = inv.warrantyPeriod || '';
+                    document.getElementById('invWarrantyNote').value = inv.warrantyNote || '';
+                    document.getElementById('invWarrantySerial').value = inv.warrantySerial || '';
+                    document.getElementById('invAmountPaid').value = inv.amountPaid || 0;
+                    document.getElementById('invPaymentMethod').value = inv.paymentMethod || 'Cash';
+                    document.getElementById('invNotes').value = inv.notes || '';
+                } else {
+                    setTextSafe_('invoiceModalTitle', `🧾 New Invoice — Job #${jobNum}`);
+                    addInvoiceLineItem();
+                }
+                recalcInvoiceTotals();
+            })
+            .catch(() => { addInvoiceLineItem(); recalcInvoiceTotals(); });
+    }
+
+    function closeInvoiceModal() {
+        document.getElementById('invoiceModalOverlay').style.display = 'none';
+    }
+
+    function saveInvoiceSubmit(printAfter) {
+        const calc = recalcInvoiceTotals();
+        if (calc.items.length === 0) { showToast('Add at least one line item first.', 'error'); return; }
+
+        // Popup blockers only trust window.open() when it happens synchronously
+        // inside the click handler — not after an awaited fetch resolves. So we
+        // open a blank tab right now (still inside the click), and write the
+        // actual invoice HTML into it later, once the save response comes back.
+        const printWin = printAfter ? window.open('', '_blank') : null;
+        if (printAfter && !printWin) {
+            showToast('Popup blocked — please allow popups for this site, then try Save & Print again.', 'error');
+        }
+
+        const techLabel = document.getElementById('loggedInTechName') ? document.getElementById('loggedInTechName').innerText : 'Admin';
+        const btn = printAfter ? document.getElementById('invSavePrintBtn') : document.getElementById('invSaveBtn');
+        const originalLabel = btn.innerText;
+        btn.disabled = true; btn.innerText = 'Saving...';
+
+        const payload = {
+            action: 'saveInvoice',
+            jobNum: currentInvoiceJobNum,
+            lineItems: calc.items,
+            warrantyPeriod: document.getElementById('invWarrantyPeriod').value,
+            warrantyNote: document.getElementById('invWarrantyNote').value.trim(),
+            warrantySerial: document.getElementById('invWarrantySerial').value.trim(),
+            amountPaid: calc.amountPaid,
+            paymentMethod: document.getElementById('invPaymentMethod').value || 'Cash',
+            paymentStatus: calc.status,
+            notes: document.getElementById('invNotes').value.trim(),
+            createdBy: techLabel
+        };
+
+        fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) })
+            .then(res => res.json())
+            .then(data => {
+                btn.disabled = false; btn.innerText = originalLabel;
+                if (!data.success) {
+                    showToast(data.error || 'Failed to save invoice.', 'error');
+                    if (printWin && !printWin.closed) printWin.close();
+                    return;
+                }
+                showToast(`Invoice #${data.invoiceNum} saved.`, 'success');
+                currentInvoiceNumOnFile = data.invoiceNum;
+                allInvoicesList = []; // force a fresh fetch next time the Invoices tab is viewed
+
+                // Auto-handover: reuses the same toggleHandoverStatus action the
+                // pipeline's own Handover switch calls, so no backend change is
+                // needed. Only fires the write when the switch is on — leave it
+                // off per-invoice, or flip the default in the modal, to skip this.
+                if (document.getElementById('invAutoHandoverToggle').checked) {
+                    toggleHandoverStateSubmit(currentInvoiceJobNum, true);
+                }
+
+                if (printAfter) {
+                    printInvoiceWindow(Object.assign({}, payload, {
+                        invoiceNum: data.invoiceNum, subtotal: data.subtotal !== undefined ? data.subtotal : calc.subtotal,
+                        total: data.total !== undefined ? data.total : calc.total,
+                        balance: data.balance !== undefined ? data.balance : calc.balance,
+                        customerName: document.getElementById('invCustomerLabel').innerText.replace('👤 ', ''),
+                        mobile: document.getElementById('invMobileLabel').innerText.replace('📞 ', '')
+                    }), printWin);
+                } else {
+                    closeInvoiceModal();
+                }
+            })
+            .catch(() => { btn.disabled = false; btn.innerText = originalLabel; showToast('Network error saving invoice.', 'error'); if (printWin && !printWin.closed) printWin.close(); });
+    }
+
+    // Standard warranty terms printed on every invoice. Edit freely.
+    const INVOICE_TERMS = [
+        "14 days needed for warranty covers.",
+        "Warranty period referred to = 1 year = 365-14 days, 2 year = 730-28 days, 3 year = 1095-42 days (Excluding Public Holidays). Warranty covers only manufacture's defects, damages or defects due to other causes such as improper operation, Power fluctuation, lightning or any other natural disaster are not included under this warranty.",
+        "Goods once sold are not returnable under any circumstances.",
+        "No warranty will be accepted without purchase invoice.",
+        "PLEASE PRODUCE THE INVOICE FOR WARRANTY CLAIMS."
+    ];
+
+    function printInvoiceWindow(inv, existingWin) {
+        const esc = (s) => (s === null || s === undefined) ? '' : String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const money = (n) => Number(n || 0).toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        const rowsHtml = (inv.lineItems || []).map(it => {
+            const price = it.price !== undefined ? Number(it.price) : Number(it.unitPrice || 0);
+            const discount = Number(it.discount || 0);
+            const disPrice = it.unitPrice !== undefined ? Number(it.unitPrice) : Math.max(0, price - discount);
+            const qty = Number(it.qty || 0);
+            const amount = it.amount !== undefined ? Number(it.amount) : qty * disPrice;
+            return `
+            <tr>
+                <td style="padding:4px 5px; border-bottom:1px solid #e2e8f0;">${esc(it.desc)}</td>
+                <td style="padding:4px 5px; border-bottom:1px solid #e2e8f0; text-align:right;">${money(price)}</td>
+                <td style="padding:4px 5px; border-bottom:1px solid #e2e8f0; text-align:right;">${money(discount)}</td>
+                <td style="padding:4px 5px; border-bottom:1px solid #e2e8f0; text-align:right;">${money(disPrice)}</td>
+                <td style="padding:4px 5px; border-bottom:1px solid #e2e8f0; text-align:center;">${money(qty).replace(/\.00$/, '')}</td>
+                <td style="padding:4px 5px; border-bottom:1px solid #e2e8f0; text-align:right;">${money(amount)}</td>
+            </tr>`;
+        }).join('');
+
+        const total = Number(inv.total || 0);
+        const amountPaid = Number(inv.amountPaid || 0);
+        const balance = Math.max(0, total - amountPaid);
+        const payLabel = inv.paymentMethod || 'Cash';
+
+        const warrantyLine = inv.warrantyPeriod
+            ? `<div class="warranty-line"><strong>Warranty:</strong> ${esc(inv.warrantyPeriod)}${inv.warrantySerial ? ` &nbsp; S/No: ${esc(inv.warrantySerial)}` : ''}${inv.warrantyNote ? ` &nbsp; ${esc(inv.warrantyNote)}` : ''}</div>`
+            : '';
+
+        const termsHtml = INVOICE_TERMS.map((t, i) => `<li>${esc(t)}</li>`).join('');
+
+        const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Invoice ${esc(inv.invoiceNum)}</title>
+<style>
+    @page { size: A5; margin: 8mm; }
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; margin: 0; padding: 0; font-size: 10.5px; }
+    .sheet { border: 2px solid #0f172a; padding: 6mm; min-height: 194mm; display: flex; flex-direction: column; }
+
+    .inv-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 7px; border-bottom: 1.5px solid #0f172a; }
+    .brand-logo { font-size: 18px; font-weight: 900; letter-spacing: 0.3px; }
+    .brand-logo .sap-orange { color: #ea580c; }
+    .brand-logo .sap-dark { color: #0f172a; }
+    .brand-sub { font-size: 9px; font-weight: 800; letter-spacing: 2px; color: #0f172a; margin-top: -3px; }
+    .company-meta { font-size: 8.5px; color: #334155; line-height: 1.4; margin-top: 4px; }
+    .company-meta .branches { color: #ea580c; font-weight: 700; }
+    .inv-meta { text-align: right; font-size: 9.5px; }
+    .inv-meta div { margin-bottom: 3px; }
+    .inv-meta .lbl { color: #64748b; font-weight: 600; }
+    .inv-meta .val { font-weight: 800; color: #0f172a; }
+
+    .bill-title { text-align: right; font-weight: 900; font-size: 10.5px; margin-top: 8px; color: #0f172a; }
+    .customer-row { display: flex; justify-content: space-between; align-items: baseline; margin-top: 4px; font-size: 10.5px; }
+    .customer-row .lbl { color: #475569; font-weight: 700; }
+    .customer-row .val { font-weight: 800; }
+
+    table.items-table { width: 100%; border-collapse: collapse; margin-top: 9px; }
+    table.items-table thead th { background: #bfdbfe; color: #0f172a; text-align: left; padding: 5px 6px; font-size: 9px; font-weight: 800; }
+    table.items-table thead th.num { text-align: right; }
+    table.items-table thead th.center { text-align: center; }
+
+    .warranty-line { margin-top: 7px; font-size: 9.5px; color: #1d4ed8; font-weight: 700; }
+
+    .totals-box { margin-left: auto; margin-top: 9px; width: 190px; }
+    .totals-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 10px; }
+    .totals-row.total-row { font-weight: 900; font-size: 12px; border-top: 1px solid #0f172a; border-bottom: 1px solid #0f172a; padding: 4px 0; margin-top: 3px; }
+    .totals-row.balance-row { font-weight: 800; }
+
+    .note-block { margin-top: auto; padding-top: 12px; }
+    .note-block .terms-title { font-weight: 800; font-size: 9px; text-transform: uppercase; color: #0f172a; margin-bottom: 3px; }
+    .note-block ol { margin: 0; padding-left: 13px; font-size: 7.5px; color: #334155; line-height: 1.4; }
+
+    .sig-row { display: flex; justify-content: space-between; margin-top: 16px; gap: 10px; }
+    .sig-row .sig-box { flex: 1; text-align: center; font-size: 9px; color: #334155; }
+    .sig-row .sig-line { border-top: 1px solid #0f172a; padding-top: 3px; margin-top: 16px; }
+
+    .brand-footer { text-align: center; font-size: 7.5px; color: #64748b; margin-top: 9px; border-top: 1px solid #cbd5e1; padding-top: 5px; font-weight: 700; letter-spacing: 0.3px; }
+
+    @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+</style>
+</head>
+<body>
+    <div class="sheet">
+        <div class="inv-header">
+            <div>
+                <div class="brand-logo"><span class="sap-orange">SAP</span> <span class="sap-dark">COMPUTERS</span></div>
+                <div class="company-meta">
+                    ${esc(COMPANY_INFO.address)}<br>
+                    <span class="branches">${esc(COMPANY_INFO.phone)}</span><br>
+                    ${esc(COMPANY_INFO.email)}
+                </div>
+            </div>
+            <div class="inv-meta">
+                <div><span class="lbl">Date:</span> <span class="val">${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span></div>
+                <div><span class="lbl">Invoice Number:</span> <span class="val">${esc(inv.invoiceNum || '')}</span></div>
+            </div>
+        </div>
+
+        <div class="bill-title">Customer Bill</div>
+        <div class="customer-row">
+            <span><span class="lbl">Customer Name:</span> <span class="val">${esc(inv.customerName)}</span></span>
+            <span class="lbl">${esc(inv.mobile)}</span>
+        </div>
+
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th>Description</th>
+                    <th class="num">Price</th>
+                    <th class="num">Discount</th>
+                    <th class="num">Dis/Price</th>
+                    <th class="center">Qty</th>
+                    <th class="num">Amount</th>
+                </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+        </table>
+
+        ${warrantyLine}
+
+        <div class="totals-box">
+            <div class="totals-row total-row"><span>Total</span><span>${money(total)}</span></div>
+            <div class="totals-row"><span>${esc(payLabel)}</span><span>${money(amountPaid)}</span></div>
+            <div class="totals-row balance-row"><span>Balance</span><span>${money(balance)}</span></div>
+        </div>
+
+        ${inv.notes ? `<p style="margin-top:9px; font-size:9px; color:#475569;"><strong>Note:</strong> ${esc(inv.notes)}</p>` : ''}
+
+        <div class="note-block">
+            <div class="terms-title">Terms &amp; Conditions</div>
+            <ol>${termsHtml}</ol>
+
+            <div class="sig-row">
+                <div class="sig-box"><div class="sig-line">Issuing Officer Signature</div></div>
+                <div class="sig-box"><div class="sig-line">Approved by</div></div>
+                <div class="sig-box"><div class="sig-line">Customer Signature</div></div>
+            </div>
+
+            <div class="brand-footer">Software Solution by SAP COMPUTERS (PVT) Ltd Software Team</div>
+        </div>
+    </div>
+    <script>window.onload = function(){ window.print(); };<\/script>
+</body></html>`;
+
+        // If a window handle was already opened synchronously by the caller
+        // (see saveInvoiceSubmit), reuse it — writing into it later is fine,
+        // it's only the window.open() call itself that must happen inside a
+        // direct click handler, or popup blockers silently kill it. Falling
+        // back to opening our own window here still works for the Invoices
+        // tab's "Print" link, which calls this function directly on click
+        // with no fetch in between.
+        const win = (existingWin && !existingWin.closed) ? existingWin : window.open('', '_blank');
+        if (!win) {
+            showToast('Popup blocked — please allow popups for this site and try again.', 'error');
+            return;
+        }
+        win.document.write(html);
+        win.document.close();
+    }
+
+    function fetchInvoicesList() {
+        const container = document.getElementById('invoicesRowsContainer');
+        container.innerHTML = '<tr><td colspan="5" style="padding:20px; text-align:center; color:#94a3b8;">Loading invoices…</td></tr>';
+        fetch(`${WEB_APP_URL}?action=getInvoicesList`)
+            .then(res => res.json())
+            .then(data => {
+                if (!data.success) { container.innerHTML = '<tr><td colspan="5" style="padding:20px; text-align:center; color:#ef476f;">Failed to load invoices.</td></tr>'; return; }
+                allInvoicesList = data.invoices || [];
+                renderInvoicesTable();
+            })
+            .catch(() => { container.innerHTML = '<tr><td colspan="5" style="padding:20px; text-align:center; color:#ef476f;">Network error loading invoices.</td></tr>'; });
+    }
+
+    function renderInvoicesTable() {
+        const container = document.getElementById('invoicesRowsContainer');
+        const search = (document.getElementById('ifSearch').value || '').toLowerCase().trim();
+        const statusFilter = document.getElementById('ifPaymentStatus').value;
+        const dateFrom = document.getElementById('ifDateFrom').value;
+        const dateTo = document.getElementById('ifDateTo').value;
+
+        const filtered = allInvoicesList.filter(inv => {
+            if (statusFilter !== 'ALL' && inv.paymentStatus !== statusFilter) return false;
+            if (search) {
+                const haystack = `${inv.invoiceNum} ${inv.jobNum} ${inv.customerName} ${inv.mobile}`.toLowerCase();
+                if (!haystack.includes(search)) return false;
+            }
+            if (dateFrom || dateTo) {
+                const d = new Date(inv.createdDate);
+                if (dateFrom && d < new Date(dateFrom)) return false;
+                if (dateTo && d > new Date(dateTo + 'T23:59:59')) return false;
+            }
+            return true;
+        });
+
+        if (filtered.length === 0) {
+            container.innerHTML = '<tr><td colspan="5" style="padding:20px; text-align:center; color:#94a3b8;">No invoices match your filters.</td></tr>';
+            return;
+        }
+
+        container.innerHTML = filtered.map(inv => `
+            <tr>
+                <td><strong>#${inv.invoiceNum}</strong><br><span style="font-size:11px; color:#64748b;">${new Date(inv.createdDate).toLocaleString()}</span></td>
+                <td>Job #${inv.jobNum}<br><span style="font-size:11px; color:#64748b;">${inv.customerName || ''} — ${inv.mobile || ''}</span></td>
+                <td>Total: <strong>Rs. ${Number(inv.total).toFixed(2)}</strong><br><span style="font-size:11px; color:#64748b;">Paid: Rs. ${Number(inv.amountPaid).toFixed(2)} | Bal: Rs. ${Number(inv.balance).toFixed(2)}</span></td>
+                <td><span class="invoice-status-tag invoice-status-${inv.paymentStatus}">${inv.paymentStatus}</span>${inv.paymentMethod ? `<br><span style="font-size:11px; color:#64748b;">${inv.paymentMethod}</span>` : ''}</td>
+                <td>
+                    <a class="history-link" onclick="openInvoiceModal(${inv.jobNum}, ${JSON.stringify(inv.customerName || '').replace(/"/g, '&quot;')}, ${JSON.stringify(inv.mobile || '').replace(/"/g, '&quot;')}, ${JSON.stringify(inv.itemType || '').replace(/"/g, '&quot;')}, ${JSON.stringify(inv.model || '').replace(/"/g, '&quot;')})">✏️ Edit</a><br>
+                    <a class="history-link" style="color:#1e3a8a;" onclick="printInvoiceWindow(${JSON.stringify(inv).replace(/"/g, '&quot;')})">🖨️ Print</a>
+                </td>
+            </tr>
+        `).join('');
+    }
 
     function initDashboardData() {
         loadDynamicWorkshopsAndTechDropdowns();

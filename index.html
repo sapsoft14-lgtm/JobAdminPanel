@@ -1981,6 +1981,16 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         el.innerText = text;
     }
 
+    // Looks up the job's registered Fault / Item Description (the text entered
+    // in the "Fault" field on the Job Registry form) so a brand-new invoice can
+    // start with a pre-filled first line item instead of a blank description.
+    // Falls back to a blank line item if the job can't be found or has no fault text.
+    function firstLineItemFromJob_(jobNum) {
+        const job = jobsCacheArray.find(j => String(j.jobNum) === String(jobNum));
+        const desc = job && job.fault ? job.fault.trim() : '';
+        return desc ? { desc: desc } : undefined;
+    }
+
     function openInvoiceModal(jobNum, customerName, mobile, itemType, model) {
         currentInvoiceJobNum = jobNum;
         currentInvoiceNumOnFile = null;
@@ -2016,11 +2026,11 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
                     document.getElementById('invNotes').value = inv.notes || '';
                 } else {
                     setTextSafe_('invoiceModalTitle', `🧾 New Invoice — Job #${jobNum}`);
-                    addInvoiceLineItem();
+                    addInvoiceLineItem(firstLineItemFromJob_(jobNum));
                 }
                 recalcInvoiceTotals();
             })
-            .catch(() => { addInvoiceLineItem(); recalcInvoiceTotals(); });
+            .catch(() => { addInvoiceLineItem(firstLineItemFromJob_(jobNum)); recalcInvoiceTotals(); });
     }
 
     function closeInvoiceModal() {

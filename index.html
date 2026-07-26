@@ -226,6 +226,7 @@
         /* ── Login Gate ─────────────────────────────────────────────────── */
         .login-gate { position: fixed; inset: 0; background: linear-gradient(135deg, #1e3a8a, #0f172a); display: flex; align-items: center; justify-content: center; z-index: 20000; }
         .login-box { background: white; padding: 32px 28px; border-radius: 12px; width: 320px; max-width: 88vw; box-shadow: 0 15px 45px rgba(0,0,0,0.35); }
+        .login-logo { display: block; max-width: 140px; max-height: 90px; width: auto; height: auto; margin: 0 auto 16px; object-fit: contain; }
         .login-box h2 { text-align: center; margin-top: 0; margin-bottom: 18px; }
         .login-error { color: #b91c1c; font-size: 12px; font-weight: bold; margin-top: 10px; text-align: center; display: none; }
         .login-hint { font-size: 11px; color: #94a3b8; text-align: center; margin-top: 12px; }
@@ -331,6 +332,7 @@
 <!-- ── Login Gate (blocks access until valid technician/admin login) ──── -->
 <div id="loginGate" class="login-gate">
     <div class="login-box">
+        <img src="logo.png" alt="Company Logo" class="login-logo" onerror="this.style.display='none';">
         <h2>🔒 SAP Admin Access</h2>
         <form id="loginForm">
             <div class="form-group">
@@ -345,6 +347,7 @@
             <div class="login-error" id="loginError">Invalid username or password.</div>
         </form>
         <div class="login-hint">Use your Technicians sheet credentials to sign in.</div>
+        <div class="login-hint" style="color:#1e3a8a; font-weight:700; margin-top:4px;">🛡️ For full access, use your Super Admin login details.</div>
         <div class="theme-toggle-wrap" style="justify-content:center; margin-top:14px;">
             <label class="switch">
                 <input type="checkbox" id="darkModeToggleLogin" onchange="toggleDarkMode(this.checked)">
@@ -389,6 +392,7 @@
 <div class="admin-tab-nav">
     <button type="button" class="admin-tab-btn active" id="tabBtnPipeline" onclick="switchAdminTab('pipeline')">📋 Jobs Dashboard</button>
     <button type="button" class="admin-tab-btn" id="tabBtnInvoices" onclick="switchAdminTab('invoices')">🧾 Invoices</button>
+    <button type="button" class="admin-tab-btn" id="tabBtnUsers" onclick="switchAdminTab('users')" style="display:none;">👥 Users &amp; Workshops</button>
     <a href="https://sapsoft14-lgtm.github.io/SAPPURCHASING/" target="_blank" rel="noopener" class="admin-tab-btn" style="text-decoration:none; display:inline-flex; align-items:center;">🛒 Purchasing Ledger</a>
 </div>
 
@@ -497,6 +501,25 @@
                     <div class="form-group"><label>Repair Estimate Price <span style="font-weight:400; color:#94a3b8; text-transform:none;">— can be a range e.g. 3000 - 5000</span></label><input type="text" id="oEstimatePrice" placeholder="Leave blank to keep unchanged"></div>
                     <div class="form-group"><label>Final Total Price</label><input type="number" id="oTotalPrice" placeholder="Leave blank to keep unchanged"></div>
                 </div>
+
+                <!-- ── Super Admin only: full job-detail edit fields ────────────── -->
+                <div id="oSuperAdminFields" style="display:none; border-top:1px dashed #cbd5e1; margin-top:6px; padding-top:10px;">
+                    <label style="display:block; margin-bottom:8px; color:#1e3a8a;">🛡️ Super Admin — Edit Job Card Details</label>
+                    <div class="row">
+                        <div class="form-group"><label>Customer Name</label><input type="text" id="oCustomerName" placeholder="Leave blank to keep unchanged"></div>
+                        <div class="form-group"><label>Telephone Number</label><input type="text" id="oMobile" placeholder="Leave blank to keep unchanged"></div>
+                    </div>
+                    <div class="row">
+                        <div class="form-group"><label>Category <span style="font-weight:400; color:#94a3b8; text-transform:none;">— e.g. Laptop, CCTV</span></label><input type="text" id="oItemType" placeholder="Leave blank to keep unchanged"></div>
+                        <div class="form-group"><label>Model / Brand</label><input type="text" id="oModel" placeholder="Leave blank to keep unchanged"></div>
+                    </div>
+                    <div class="row">
+                        <div class="form-group"><label>Serial Number</label><input type="text" id="oSerial" placeholder="Leave blank to keep unchanged"></div>
+                        <div class="form-group"><label>Fault Description</label><input type="text" id="oFault" placeholder="Leave blank to keep unchanged"></div>
+                    </div>
+                    <div class="form-group"><label>Handover Date &amp; Time</label><input type="datetime-local" id="oHandoverTime" step="1"></div>
+                </div>
+
                 <div class="form-group">
                     <label>Admin Comment <span style="font-weight:400; color:#94a3b8;">— optional, saved to job history</span></label>
                     <textarea id="oComment" rows="2" placeholder="Reason for this override / note for the record..."></textarea>
@@ -647,6 +670,60 @@
     </div>
 </div>
 
+<!-- ── Users & Workshops (Super Admin only) ─────────────────────────────── -->
+<div class="invoices-container" id="usersView" style="display:none;">
+    <div class="card">
+        <h2>👤 Technicians / Users</h2>
+        <form id="userForm" style="margin-bottom:14px;">
+            <input type="hidden" id="uOriginalUsername" value="">
+            <div class="row">
+                <div class="form-group"><label>Username</label><input type="text" id="uUsername" required="" autocomplete="off"></div>
+                <div class="form-group"><label>Password <span id="uPasswordHint" style="font-weight:400; color:#94a3b8; text-transform:none;"></span></label><input type="text" id="uPassword" autocomplete="off"></div>
+            </div>
+            <div class="row">
+                <div class="form-group"><label>Technician / Display Name</label><input type="text" id="uTechName" required="" autocomplete="off"></div>
+                <div class="form-group">
+                    <label>Role</label>
+                    <select id="uRole">
+                        <option value="">Technician (default)</option>
+                        <option value="Super Admin">Super Admin</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit" id="userFormSubmitBtn" class="btn-blue">💾 Save User</button>
+            <button type="button" id="userFormCancelBtn" class="btn-reset-filters" style="display:none;" onclick="resetUserForm()">✕ Cancel Edit</button>
+        </form>
+        <div class="table-responsive-wrapper">
+            <table class="pipeline-table">
+                <thead><tr><th>Username</th><th>Technician Name</th><th>Role</th><th>Actions</th></tr></thead>
+                <tbody id="usersRowsContainer">
+                    <tr><td colspan="4" style="padding:20px; text-align:center; color:#94a3b8;">Loading…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>🏭 Workshops</h2>
+        <form id="workshopForm" style="margin-bottom:14px;">
+            <input type="hidden" id="wOriginalName" value="">
+            <div class="row">
+                <div class="form-group"><label>Workshop Name</label><input type="text" id="wName" required="" autocomplete="off"></div>
+            </div>
+            <button type="submit" id="workshopFormSubmitBtn" class="btn-blue">💾 Save Workshop</button>
+            <button type="button" id="workshopFormCancelBtn" class="btn-reset-filters" style="display:none;" onclick="resetWorkshopForm()">✕ Cancel Edit</button>
+        </form>
+        <div class="table-responsive-wrapper">
+            <table class="pipeline-table">
+                <thead><tr><th>Workshop Name</th><th>Actions</th></tr></thead>
+                <tbody id="workshopsRowsContainer">
+                    <tr><td colspan="2" style="padding:20px; text-align:center; color:#94a3b8;">Loading…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
 <div id="adminLightbox" class="lightbox-modal" onclick="closeAdminLightbox()">
     <span class="lightbox-close">×</span>
     <img class="lightbox-content" id="adminLightboxTargetImg">
@@ -781,6 +858,7 @@
     // ─────────────────────────────────────────────────────────────────────────
 
     let jobsCacheArray = []; let openAdminHistoryTracker = null;
+    let currentUsername = ''; let currentUserRole = ''; let isCurrentUserSuperAdmin = false;
     let currentFilteredJobs = []; // tracks whatever is currently visible after filters, used by report generator
     let selectedOverrideJobNum = null; // tracks which job card is currently selected for the Modify Overrides panel
     const AUTH_SESSION_KEY = 'sap_admin_session';
@@ -1426,6 +1504,15 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         document.getElementById('oTotalPrice').value = job.totalPrice || '';
         document.getElementById('oComment').value = '';
 
+        // Super-Admin-only extended fields (blank = "leave unchanged" on submit)
+        document.getElementById('oCustomerName').value = job.customer || '';
+        document.getElementById('oMobile').value = job.mobile || '';
+        document.getElementById('oItemType').value = job.itemType || '';
+        document.getElementById('oModel').value = job.model || '';
+        document.getElementById('oSerial').value = job.serial || '';
+        document.getElementById('oFault').value = job.fault || '';
+        document.getElementById('oHandoverTime').value = canonicalToDatetimeLocal_(job.handoverTime);
+
         selectedOverrideJobNum = job.jobNum;
 
         const form = document.getElementById('overrideForm');
@@ -1447,6 +1534,15 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         document.getElementById('overrideForm').reset();
         document.getElementById('oStatus').value = 'Pending';
         document.querySelectorAll('#pipelineRowsContainer tr').forEach(row => row.classList.remove('job-row-selected'));
+    }
+
+    // Converts the backend's canonical "yyyy-MM-dd HH:mm:ss" timestamp text
+    // into the "yyyy-MM-ddTHH:mm:ss" shape a <input type="datetime-local">
+    // needs for its value. Returns '' for anything it can't recognize.
+    function canonicalToDatetimeLocal_(str) {
+        if (!str) return '';
+        const m = str.toString().trim().match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(:\d{2})?)/);
+        return m ? `${m[1]}T${m[2]}` : '';
     }
 
     function toggleHandoverStateSubmit(jobNum, isChecked) {
@@ -1978,12 +2074,22 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({
             action: "adminModifyJob",
             jobNum: overriddenJobNum,
+            requester: currentUsername,
             workshop: document.getElementById('oWorkshop').value,
             tech: document.getElementById('oTech').value,
             status: document.getElementById('oStatus').value,
             estimatedPrice: document.getElementById('oEstimatePrice').value.trim(),
             totalPrice: document.getElementById('oTotalPrice').value.trim(),
-            comment: document.getElementById('oComment').value.trim()
+            comment: document.getElementById('oComment').value.trim(),
+            // Only actually applied server-side if `requester` checks out as
+            // Super Admin — see adminModifyJob in Code.gs.
+            customerName: document.getElementById('oCustomerName').value.trim(),
+            mobile: document.getElementById('oMobile').value.trim(),
+            itemType: document.getElementById('oItemType').value.trim(),
+            model: document.getElementById('oModel').value.trim(),
+            serial: document.getElementById('oSerial').value.trim(),
+            fault: document.getElementById('oFault').value.trim(),
+            handoverTime: document.getElementById('oHandoverTime').value
         }) })
         .then(res => res.json()).then(data => {
             if(data.success) {
@@ -2091,13 +2197,179 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
     let currentInvoiceNumOnFile = null; // set when editing an existing invoice
 
     function switchAdminTab(tab) {
-        const isPipeline = tab === 'pipeline';
-        document.getElementById('pipelineView').style.display = isPipeline ? '' : 'none';
-        document.getElementById('invoicesView').style.display = isPipeline ? 'none' : '';
-        document.getElementById('tabBtnPipeline').classList.toggle('active', isPipeline);
-        document.getElementById('tabBtnInvoices').classList.toggle('active', !isPipeline);
-        if (!isPipeline && allInvoicesList.length === 0) fetchInvoicesList();
+        if (tab === 'users' && !isCurrentUserSuperAdmin) { showToast('Super Admin access required.', 'error'); tab = 'pipeline'; }
+
+        document.getElementById('pipelineView').style.display = tab === 'pipeline' ? '' : 'none';
+        document.getElementById('invoicesView').style.display = tab === 'invoices' ? '' : 'none';
+        document.getElementById('usersView').style.display = tab === 'users' ? '' : 'none';
+        document.getElementById('tabBtnPipeline').classList.toggle('active', tab === 'pipeline');
+        document.getElementById('tabBtnInvoices').classList.toggle('active', tab === 'invoices');
+        document.getElementById('tabBtnUsers').classList.toggle('active', tab === 'users');
+
+        if (tab === 'invoices' && allInvoicesList.length === 0) fetchInvoicesList();
+        if (tab === 'users') fetchUserManagementData();
     }
+
+    // ── Users & Workshops management (Super Admin only, v11.8) ─────────────
+    let allUsersList = [];
+    let allWorkshopsMgmtList = [];
+
+    function fetchUserManagementData() {
+        document.getElementById('usersRowsContainer').innerHTML = '<tr><td colspan="4" style="padding:20px; text-align:center; color:#94a3b8;">Loading…</td></tr>';
+        document.getElementById('workshopsRowsContainer').innerHTML = '<tr><td colspan="2" style="padding:20px; text-align:center; color:#94a3b8;">Loading…</td></tr>';
+        fetch(`${WEB_APP_URL}?action=getUserManagementData&requester=${encodeURIComponent(currentUsername)}`)
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success) { showToast(data.error || 'Could not load users/workshops.', 'error'); return; }
+            allUsersList = data.users || [];
+            allWorkshopsMgmtList = data.workshops || [];
+            renderUsersTable();
+            renderWorkshopsTable();
+        })
+        .catch(() => showToast('Network error loading users/workshops.', 'error'));
+    }
+
+    const esc_ = (s) => (s === null || s === undefined) ? '' : String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+
+    // Safely embeds a JS value as a function-call argument inside an HTML
+    // onclick="..." attribute. JSON.stringify() alone isn't safe here — its
+    // output contains literal " characters that terminate a double-quoted
+    // HTML attribute early, corrupting the markup (and breaking every
+    // onclick after it). Escaping those quotes to &quot; keeps the HTML
+    // attribute intact; the browser un-escapes them before the JS runs.
+    const jsAttr_ = (v) => JSON.stringify(v === null || v === undefined ? '' : v).replace(/"/g, '&quot;');
+
+    function renderUsersTable() {
+        const tbody = document.getElementById('usersRowsContainer');
+        if (allUsersList.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="padding:20px; text-align:center; color:#94a3b8;">No users found.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = allUsersList.map(u => `
+            <tr>
+                <td>${esc_(u.username)}</td>
+                <td>${esc_(u.techName)}</td>
+                <td>${u.role ? `<span style="background:#1e3a8a; color:white; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:700;">${esc_(u.role)}</span>` : 'Technician'}</td>
+                <td>
+                    <a class="history-link" onclick="editUserRow(${jsAttr_(u.username)}, ${jsAttr_(u.techName)}, ${jsAttr_(u.role)})">✏️ Edit</a> &nbsp;
+                    <a class="history-link" style="color:#dc2626;" onclick="deleteUserRow(${jsAttr_(u.username)})">🗑️ Delete</a>
+                </td>
+            </tr>`).join('');
+    }
+
+    function renderWorkshopsTable() {
+        const tbody = document.getElementById('workshopsRowsContainer');
+        if (allWorkshopsMgmtList.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="2" style="padding:20px; text-align:center; color:#94a3b8;">No workshops found.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = allWorkshopsMgmtList.map(w => `
+            <tr>
+                <td>${esc_(w.name)}</td>
+                <td>
+                    <a class="history-link" onclick="editWorkshopRow(${jsAttr_(w.name)})">✏️ Edit</a> &nbsp;
+                    <a class="history-link" style="color:#dc2626;" onclick="deleteWorkshopRow(${jsAttr_(w.name)})">🗑️ Delete</a>
+                </td>
+            </tr>`).join('');
+    }
+
+    function editUserRow(username, techName, role) {
+        document.getElementById('uOriginalUsername').value = username;
+        document.getElementById('uUsername').value = username;
+        document.getElementById('uTechName').value = techName;
+        document.getElementById('uRole').value = role || '';
+        document.getElementById('uPassword').value = '';
+        document.getElementById('uPasswordHint').innerText = '— leave blank to keep current password';
+        document.getElementById('userFormSubmitBtn').innerText = '💾 Update User';
+        document.getElementById('userFormCancelBtn').style.display = '';
+        document.getElementById('userForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function resetUserForm() {
+        document.getElementById('userForm').reset();
+        document.getElementById('uOriginalUsername').value = '';
+        document.getElementById('uPasswordHint').innerText = '';
+        document.getElementById('userFormSubmitBtn').innerText = '💾 Save User';
+        document.getElementById('userFormCancelBtn').style.display = 'none';
+    }
+
+    function deleteUserRow(username) {
+        if (username.toLowerCase() === currentUsername.toLowerCase()) { showToast("You can't delete your own logged-in account.", 'error'); return; }
+        if (!confirm(`Delete user "${username}"? This cannot be undone.`)) return;
+        fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'deleteUser', requester: currentUsername, username: username }) })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) { showToast('User deleted.', 'success'); fetchUserManagementData(); }
+            else { showToast(data.error || 'Could not delete user.', 'error'); }
+        })
+        .catch(() => showToast('Network error deleting user.', 'error'));
+    }
+
+    document.getElementById('userForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const payload = {
+            action: 'saveUser',
+            requester: currentUsername,
+            originalUsername: document.getElementById('uOriginalUsername').value.trim(),
+            username: document.getElementById('uUsername').value.trim(),
+            password: document.getElementById('uPassword').value,
+            techName: document.getElementById('uTechName').value.trim(),
+            role: document.getElementById('uRole').value
+        };
+        fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                showToast('User saved.', 'success');
+                resetUserForm();
+                fetchUserManagementData();
+            } else { showToast(data.error || 'Could not save user.', 'error'); }
+        })
+        .catch(() => showToast('Network error saving user.', 'error'));
+    });
+
+    function editWorkshopRow(name) {
+        document.getElementById('wOriginalName').value = name;
+        document.getElementById('wName').value = name;
+        document.getElementById('workshopFormSubmitBtn').innerText = '💾 Update Workshop';
+        document.getElementById('workshopFormCancelBtn').style.display = '';
+        document.getElementById('workshopForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function resetWorkshopForm() {
+        document.getElementById('workshopForm').reset();
+        document.getElementById('wOriginalName').value = '';
+        document.getElementById('workshopFormSubmitBtn').innerText = '💾 Save Workshop';
+        document.getElementById('workshopFormCancelBtn').style.display = 'none';
+    }
+
+    function deleteWorkshopRow(name) {
+        if (!confirm(`Delete workshop "${name}"? This cannot be undone.`)) return;
+        fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'deleteWorkshop', requester: currentUsername, name: name }) })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) { showToast('Workshop deleted.', 'success'); fetchUserManagementData(); }
+            else { showToast(data.error || 'Could not delete workshop.', 'error'); }
+        })
+        .catch(() => showToast('Network error deleting workshop.', 'error'));
+    }
+
+    document.getElementById('workshopForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const payload = {
+            action: 'saveWorkshop',
+            requester: currentUsername,
+            originalName: document.getElementById('wOriginalName').value.trim(),
+            name: document.getElementById('wName').value.trim()
+        };
+        fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) { showToast('Workshop saved.', 'success'); resetWorkshopForm(); fetchUserManagementData(); }
+            else { showToast(data.error || 'Could not save workshop.', 'error'); }
+        })
+        .catch(() => showToast('Network error saving workshop.', 'error'));
+    });
 
     function addInvoiceLineItem(item) {
         const id = 'li-' + (invoiceLineIdSeq++);
@@ -2576,16 +2848,26 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         if (!saved) return;
         try {
             const parsed = JSON.parse(saved);
-            grantAccess(parsed.techName);
+            grantAccess(parsed.techName, parsed.username, parsed.role);
         } catch (e) {
             sessionStorage.removeItem(AUTH_SESSION_KEY);
         }
     }
 
-    function grantAccess(techName) {
+    function grantAccess(techName, username, role) {
+        currentUsername = username || '';
+        currentUserRole = role || '';
+        isCurrentUserSuperAdmin = (currentUserRole || '').trim().toLowerCase() === 'super admin';
+
         document.getElementById('loginGate').style.display = 'none';
         document.getElementById('sessionBar').style.display = 'flex';
-        document.getElementById('loggedInTechName').innerText = techName || 'Admin';
+        document.getElementById('loggedInTechName').innerText = (techName || 'Admin') + (isCurrentUserSuperAdmin ? ' (Super Admin)' : '');
+
+        const usersTabBtn = document.getElementById('tabBtnUsers');
+        if (usersTabBtn) usersTabBtn.style.display = isCurrentUserSuperAdmin ? '' : 'none';
+        const superAdminOverrideFields = document.getElementById('oSuperAdminFields');
+        if (superAdminOverrideFields) superAdminOverrideFields.style.display = isCurrentUserSuperAdmin ? '' : 'none';
+
         initDashboardData();
     }
 
@@ -2607,8 +2889,8 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify({ techName: data.techName }));
-                grantAccess(data.techName);
+                sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify({ techName: data.techName, username: data.username, role: data.role }));
+                grantAccess(data.techName, data.username, data.role);
             } else {
                 errBox.innerText = data.error || 'Invalid username or password.';
                 errBox.style.display = 'block';

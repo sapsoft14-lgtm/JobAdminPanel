@@ -572,6 +572,16 @@
                 <option value="SHOW">Show Handed Over Only</option>
                 <option value="ALL">Show All Combined</option>
             </select>
+            <select id="fSortOrder" onchange="renderPipelineTable()" title="Sort order for the jobs queue below">
+                <option value="createdDesc">Sort: Newest Created First</option>
+                <option value="createdAsc">Sort: Oldest Created First</option>
+                <option value="updatedDesc">Sort: Recently Updated First</option>
+                <option value="updatedAsc">Sort: Least Recently Updated</option>
+                <option value="jobDesc">Sort: Job # (High → Low)</option>
+                <option value="jobAsc">Sort: Job # (Low → High)</option>
+                <option value="handoverDesc">Sort: Handover Date (Newest First)</option>
+                <option value="handoverAsc">Sort: Handover Date (Oldest First)</option>
+            </select>
             <button id="syncPipelineBtn" onclick="fetchLivePipelineData()" aria-label="Sync pipeline data" style="background:#64748b; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; width: 100%; transition: opacity .15s;">🔄 Sync</button>
         </div>
 
@@ -585,11 +595,18 @@
 
         <!-- Date Range Filter Bar -->
         <div class="date-filter-bar">
-            <label>📅 Date Range:</label>
+            <label>📅 Created:</label>
             <input type="date" id="fDateFrom" onchange="renderPipelineTable()" title="From date">
             <span style="font-size:13px; color:#94a3b8; font-weight:bold;">→</span>
             <input type="date" id="fDateTo" onchange="renderPipelineTable()" title="To date">
             <span id="dateActiveBadge" class="date-active-badge">📅 Date filter active</span>
+
+            <label style="margin-left:10px;">📦 Handed Over:</label>
+            <input type="date" id="fHandoverDateFrom" onchange="onHandoverDateFilterChange()" title="Handover date from">
+            <span style="font-size:13px; color:#94a3b8; font-weight:bold;">→</span>
+            <input type="date" id="fHandoverDateTo" onchange="onHandoverDateFilterChange()" title="Handover date to">
+            <span id="handoverDateActiveBadge" class="date-active-badge">📦 Handover date filter active</span>
+
             <button class="btn-reset-filters btn-report" onclick="generateFilteredReport()" title="Generate a printable report for the currently filtered results">📊 Generate Report</button>
             <button class="btn-reset-filters" onclick="resetAllFilters()" title="Clear all filters">✕ Reset Filters</button>
         </div>
@@ -767,6 +784,70 @@
     let currentFilteredJobs = []; // tracks whatever is currently visible after filters, used by report generator
     let selectedOverrideJobNum = null; // tracks which job card is currently selected for the Modify Overrides panel
     const AUTH_SESSION_KEY = 'sap_admin_session';
+
+    // ── Resilient date parsing (fixes inconsistent handoverTime / informedLastDate formats) ──
+    // Some jobs' handoverTime / informedLastDate cells were written as a plain
+    // "M/D/YYYY, h:mm:ss AM/PM" style string, but Google Sheets auto-detects
+    // date-looking text and silently converts the cell into a real Date value.
+    // Once that happens, the backend's JSON response serializes it as a raw
+    // ISO timestamp (e.g. "2026-07-26T10:26:19.000Z") instead of the original
+    // friendly string — which is why some jobs show a clean date and others
+    // show the ugly ISO string, and why date-range filtering could silently
+    // miss jobs stored in the other format. parseAnyDate() understands both
+    // shapes so filtering/sorting is consistent regardless of which one a
+    // given cell happens to be in, and formatFriendlyDate() re-renders both
+    // shapes the same way for display.
+    function parseAnyDate(raw) {
+        if (!raw) return null;
+        if (raw instanceof Date) return isNaN(raw.getTime()) ? null : raw;
+        const str = raw.toString().trim();
+        if (!str) return null;
+
+        // Handles ISO 8601 ("2026-07-26T10:26:19.000Z") reliably across browsers,
+        // and also happens to catch most other unambiguous formats.
+        let d = new Date(str);
+        if (!isNaN(d.getTime())) return d;
+
+        // Fallback: Apps Script's default toLocaleString() shape,
+        // "M/D/YYYY, h:mm:ss AM/PM" — not reliably parsed by `new Date()`
+        // on every browser (notably Safari/iOS), so parse it manually.
+        const m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4}),?\s+(\d{1,2}):(\d{2}):(\d{2})\s*(AM|PM)?$/i);
+        if (m) {
+            const mo = parseInt(m[1], 10), da = parseInt(m[2], 10), yr = parseInt(m[3], 10);
+            let hh = parseInt(m[4], 10);
+            const mi = parseInt(m[5], 10), ss = parseInt(m[6], 10), ap = m[7] ? m[7].toUpperCase() : null;
+            if (ap === 'PM' && hh !== 12) hh += 12;
+            if (ap === 'AM' && hh === 12) hh = 0;
+            d = new Date(yr, mo - 1, da, hh, mi, ss);
+            if (!isNaN(d.getTime())) return d;
+        }
+
+        // Fallback: the backend's "yyyy-MM-dd hh:mm a" / new canonical
+        // "yyyy-MM-dd HH:mm:ss" formats used for handoverTime and the
+        // customer-informed timestamp, e.g. "2026-07-26 03:45 PM" or
+        // "2026-07-26 15:56:19".
+        const m2 = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+        if (m2) {
+            const yr = parseInt(m2[1], 10), mo = parseInt(m2[2], 10), da = parseInt(m2[3], 10);
+            let hh = parseInt(m2[4], 10);
+            const mi = parseInt(m2[5], 10);
+            const ss2 = m2[6] ? parseInt(m2[6], 10) : 0;
+            const ap = m2[7] ? m2[7].toUpperCase() : null;
+            if (ap === 'PM' && hh !== 12) hh += 12;
+            if (ap === 'AM' && hh === 12) hh = 0;
+            d = new Date(yr, mo - 1, da, hh, mi, ss2);
+            if (!isNaN(d.getTime())) return d;
+        }
+        return null;
+    }
+
+    // Re-renders any recognized date shape as one consistent, readable format
+    // for on-screen labels (handover time, customer-informed time, etc.).
+    function formatFriendlyDate(raw) {
+        const d = parseAnyDate(raw);
+        if (!d) return raw ? raw.toString() : '';
+        return d.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+    }
 
     // ── Job Card Print Configuration ───────────────────────────────────────
     // Edit these company details freely — they appear on every printed job card.
@@ -1018,7 +1099,7 @@ function createJitteredPoller(fn, baseMs, jitterMs) {
 
         const now = Date.now();
         const withDates = filteredJobs
-            .map(job => ({ job, ts: job.createdTime ? new Date(job.createdTime).getTime() : NaN }))
+            .map(job => { const d = parseAnyDate(job.createdTime); return { job, ts: d ? d.getTime() : NaN }; })
             .filter(x => !isNaN(x.ts));
 
         withDates.sort((a, b) => a.ts - b.ts); // oldest first
@@ -1108,8 +1189,25 @@ function createJitteredPoller(fn, baseMs, jitterMs) {
         document.getElementById('fTech').value = 'ALL';
         document.getElementById('fStatus').value = 'ALL';
         document.getElementById('fHandoverView').value = 'HIDE';
+        document.getElementById('fSortOrder').value = 'createdDesc';
         document.getElementById('fDateFrom').value = '';
         document.getElementById('fDateTo').value = '';
+        document.getElementById('fHandoverDateFrom').value = '';
+        document.getElementById('fHandoverDateTo').value = '';
+        renderPipelineTable();
+    }
+
+    // A handover-date filter only makes sense against handed-over jobs, so if
+    // someone sets one while "Hide Handed Over" is still selected, flip the
+    // handover view to "Show All Combined" automatically instead of silently
+    // returning zero results.
+    function onHandoverDateFilterChange() {
+        const hFrom = document.getElementById('fHandoverDateFrom').value;
+        const hTo = document.getElementById('fHandoverDateTo').value;
+        const handoverViewSelect = document.getElementById('fHandoverView');
+        if ((hFrom || hTo) && handoverViewSelect.value === 'HIDE') {
+            handoverViewSelect.value = 'ALL';
+        }
         renderPipelineTable();
     }
 
@@ -1121,12 +1219,17 @@ function createJitteredPoller(fn, baseMs, jitterMs) {
         const sTech = document.getElementById('fTech').value; 
         const sStat = document.getElementById('fStatus').value;
         const sHandover = document.getElementById('fHandoverView').value;
+        const sSort = document.getElementById('fSortOrder').value;
         const sDateFrom = document.getElementById('fDateFrom').value;
         const sDateTo = document.getElementById('fDateTo').value;
+        const sHandoverDateFrom = document.getElementById('fHandoverDateFrom').value;
+        const sHandoverDateTo = document.getElementById('fHandoverDateTo').value;
 
-        // Update date active badge
+        // Update date active badges
         const dateBadge = document.getElementById('dateActiveBadge');
         dateBadge.style.display = (sDateFrom || sDateTo) ? 'inline-block' : 'none';
+        const handoverDateBadge = document.getElementById('handoverDateActiveBadge');
+        handoverDateBadge.style.display = (sHandoverDateFrom || sHandoverDateTo) ? 'inline-block' : 'none';
         
         const container = document.getElementById('pipelineRowsContainer'); 
         container.innerHTML = "";
@@ -1134,6 +1237,9 @@ function createJitteredPoller(fn, baseMs, jitterMs) {
         // Parse date range boundaries (end of day for "to" date)
         const fromMs = sDateFrom ? new Date(sDateFrom).getTime() : null;
         const toMs   = sDateTo   ? new Date(sDateTo + 'T23:59:59').getTime() : null;
+        const hFromMs = sHandoverDateFrom ? new Date(sHandoverDateFrom).getTime() : null;
+        const hToMs   = sHandoverDateTo   ? new Date(sHandoverDateTo + 'T23:59:59').getTime() : null;
+        const wantsHandoverDateFilter = (hFromMs !== null || hToMs !== null);
 
         // Track only jobs that clear all active matching filters
         let matchingJobsList = [];
@@ -1155,20 +1261,83 @@ function createJitteredPoller(fn, baseMs, jitterMs) {
             if(sTech !== "ALL" && job.tech !== sTech) return;
             if(sStat !== "ALL" && job.status !== sStat) return;
             
-            if(sHandover === "HIDE" && job.isHandedOver) return;
+            // The HIDE rule is skipped when a handover-date filter is active,
+            // since that filter (below) already restricts results to
+            // handed-over jobs only — otherwise the two filters would
+            // contradict each other and always return nothing.
+            if(sHandover === "HIDE" && job.isHandedOver && !wantsHandoverDateFilter) return;
             if(sHandover === "SHOW" && !job.isHandedOver) return;
 
             // Date range filter against job createdTime
             if(fromMs !== null || toMs !== null) {
-                const jobDate = job.createdTime ? new Date(job.createdTime).getTime() : null;
-                if(!jobDate || isNaN(jobDate)) return;
+                const jobDateObj = parseAnyDate(job.createdTime);
+                if(!jobDateObj) return;
+                const jobDate = jobDateObj.getTime();
                 if(fromMs !== null && jobDate < fromMs) return;
                 if(toMs   !== null && jobDate > toMs)   return;
             }
 
+            // Date range filter against the handover timestamp (job.handoverTime).
+            // Only handed-over jobs have a handover timestamp, so this
+            // naturally excludes anything that hasn't been handed over yet.
+            // Uses parseAnyDate() since handoverTime can arrive either as a
+            // friendly "M/D/YYYY, h:mm:ss AM/PM" string or as a raw ISO
+            // timestamp (see parseAnyDate's comment above for why).
+            if(wantsHandoverDateFilter) {
+                if(!job.isHandedOver || !job.handoverTime) return;
+                const handoverDateObj = parseAnyDate(job.handoverTime);
+                if(!handoverDateObj) return;
+                const handoverDateMs = handoverDateObj.getTime();
+                if(hFromMs !== null && handoverDateMs < hFromMs) return;
+                if(hToMs   !== null && handoverDateMs > hToMs)   return;
+            }
+
             // Job passed all filters -> register to array list
             matchingJobsList.push(job);
+        });
 
+        // ── Sort order ───────────────────────────────────────────────────
+        // Applied after filtering so the queue can be ordered independently
+        // of which filters happen to be active.
+        function toTime(val) {
+            const d = parseAnyDate(val);
+            return d ? d.getTime() : NaN;
+        }
+        matchingJobsList.sort((a, b) => {
+            switch(sSort) {
+                case 'createdAsc': {
+                    const ta = toTime(a.createdTime), tb = toTime(b.createdTime);
+                    return (isNaN(ta) ? 0 : ta) - (isNaN(tb) ? 0 : tb);
+                }
+                case 'updatedDesc': {
+                    const ta = toTime(a.updatedTime), tb = toTime(b.updatedTime);
+                    return (isNaN(tb) ? -Infinity : tb) - (isNaN(ta) ? -Infinity : ta);
+                }
+                case 'updatedAsc': {
+                    const ta = toTime(a.updatedTime), tb = toTime(b.updatedTime);
+                    return (isNaN(ta) ? Infinity : ta) - (isNaN(tb) ? Infinity : tb);
+                }
+                case 'jobDesc':
+                    return Number(b.jobNum) - Number(a.jobNum);
+                case 'jobAsc':
+                    return Number(a.jobNum) - Number(b.jobNum);
+                case 'handoverDesc': {
+                    const ta = toTime(a.handoverTime), tb = toTime(b.handoverTime);
+                    return (isNaN(tb) ? -Infinity : tb) - (isNaN(ta) ? -Infinity : ta);
+                }
+                case 'handoverAsc': {
+                    const ta = toTime(a.handoverTime), tb = toTime(b.handoverTime);
+                    return (isNaN(ta) ? Infinity : ta) - (isNaN(tb) ? Infinity : tb);
+                }
+                case 'createdDesc':
+                default: {
+                    const ta = toTime(a.createdTime), tb = toTime(b.createdTime);
+                    return (isNaN(tb) ? 0 : tb) - (isNaN(ta) ? 0 : ta);
+                }
+            }
+        });
+
+        matchingJobsList.forEach(job => {
             const isHistoryOpen = (openAdminHistoryTracker === job.jobNum) ? "block" : "none";
             const tr = document.createElement('tr');
             tr.dataset.jobnum = job.jobNum;
@@ -1178,7 +1347,7 @@ function createJitteredPoller(fn, baseMs, jitterMs) {
             tr.onclick = function() { selectJobForOverride(job.jobNum); };
             
             const handoverChecked = job.isHandedOver ? "checked" : "";
-            const handoverTimeLabel = job.handoverTime ? `<br><span style="font-size:10px; color:#059669;">📦 Handed Over: ${job.handoverTime}</span>` : "";
+            const handoverTimeLabel = job.handoverTime ? `<br><span style="font-size:10px; color:#059669;">📦 Handed Over: ${formatFriendlyDate(job.handoverTime)}</span>` : "";
 
             tr.innerHTML = `
                 <td colspan="4" style="padding:0; border-bottom:1px solid #e2e8f0;">
@@ -1224,7 +1393,7 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
                                 <button type="button" id="informedBtn-${job.jobNum}" class="btn-informed" onclick="event.stopPropagation(); markCustomerInformedSubmit(${job.jobNum}, this)">
                                     📣 Customer Informed${job.informedCount ? ` <span class="informed-count-badge">${job.informedCount}</span>` : ''}
                                 </button>
-                                ${job.informedLastDate ? `<div class="informed-label" id="informedLastLabel-${job.jobNum}">Last informed: ${job.informedLastDate}</div>` : `<div class="informed-label" id="informedLastLabel-${job.jobNum}"></div>`}
+                                ${job.informedLastDate ? `<div class="informed-label" id="informedLastLabel-${job.jobNum}">Last informed: ${formatFriendlyDate(job.informedLastDate)}</div>` : `<div class="informed-label" id="informedLastLabel-${job.jobNum}"></div>`}
                             </td>
                         </tr>
                     </table>

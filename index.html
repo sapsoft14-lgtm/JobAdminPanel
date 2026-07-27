@@ -233,6 +233,21 @@
 
         /* ── Session Bar ────────────────────────────────────────────────── */
         .session-bar { display: flex; justify-content: space-between; align-items: center; background: white; padding: 10px 16px; border-radius: 8px; margin: 0 auto 16px auto; max-width: 1700px; border: 1px solid #e2e8f0; font-size: 13px; font-weight: 600; }
+
+        /* ── Profile settings (NEW v11.10) ──────────────────────────────── */
+        .btn-profile-avatar { background: #eff6ff; border: 1px solid #93c5fd; padding: 0; border-radius: 50%; cursor: pointer; width: 34px; height: 34px; flex-shrink: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+        .btn-profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .btn-profile-avatar .avatar-fallback-a { width: 100%; height: 100%; background: #2563eb; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; }
+        .profile-modal-box { background: white; border-radius: 10px; width: 100%; max-width: 380px; padding: 22px; box-shadow: 0 12px 30px rgba(0,0,0,0.25); }
+        body.dark-mode .profile-modal-box { background: #1e293b; color: #e2e8f0; }
+        .profile-pic-row-a { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 18px; }
+        .profile-pic-preview-a { width: 88px; height: 88px; border-radius: 50%; overflow: hidden; border: 2px solid #2563eb; display: flex; align-items: center; justify-content: center; background: #2563eb; }
+        .profile-pic-preview-a img { width: 100%; height: 100%; object-fit: cover; }
+        .profile-pic-preview-a .avatar-fallback-a { color: #fff; font-weight: 800; font-size: 26px; background: transparent; }
+        .profile-section-label-a { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin: 16px 0 8px; border-top: 1px solid #e2e8f0; padding-top: 14px; }
+        .profile-section-label-a:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
+        .user-avatar-thumb { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; vertical-align: middle; margin-right: 6px; border: 1px solid #e2e8f0; }
+        .user-avatar-thumb-fallback { width: 30px; height: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: #2563eb; color: #fff; font-size: 11px; font-weight: 800; vertical-align: middle; margin-right: 6px; }
         /* Small Workshop Distribution Chart */
         .wschart-row { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; font-size: 12px; }
         .wschart-row:last-child { margin-bottom: 0; }
@@ -385,7 +400,33 @@
                 <div class="notif-list" id="notifList"><div class="notif-empty">Loading...</div></div>
             </div>
         </div>
+        <button type="button" class="btn-profile-avatar" id="profileAvatarBtnA" onclick="openProfileModalA()" title="Profile Settings"><span class="avatar-fallback-a" id="profileAvatarFallbackA">?</span><img id="profileAvatarImgA" style="display:none;"></button>
         <button class="btn-logout" onclick="logoutAdmin()">Logout</button>
+    </div>
+</div>
+
+<!-- ── Profile Settings Modal (NEW v11.10) ── -->
+<div class="invoice-modal-overlay" id="profileModalOverlayA">
+    <div class="profile-modal-box" onclick="event.stopPropagation()">
+        <div class="invoice-modal-header"><h2>👤 Profile Settings</h2><span class="invoice-close-x" onclick="closeProfileModalA()">×</span></div>
+
+        <div class="profile-pic-row-a">
+            <div class="profile-pic-preview-a" id="profilePicPreviewWrapA">
+                <span class="avatar-fallback-a" id="profilePicPreviewFallbackA">?</span>
+                <img id="profilePicPreviewImgA" style="display:none;">
+            </div>
+            <input type="file" accept="image/*" id="profilePicFileInputA" onchange="handleProfilePicSelectedA(event)" style="width:auto;">
+        </div>
+
+        <div class="profile-section-label-a">Change Password (optional)</div>
+        <div style="margin-bottom:10px;"><label style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">New Password</label><input type="password" id="profileNewPasswordA" placeholder="Leave blank to keep current password" style="width:100%; padding:9px; border:1px solid #cbd5e1; border-radius:6px;"></div>
+        <div style="margin-bottom:10px;"><label style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Confirm New Password</label><input type="password" id="profileConfirmPasswordA" placeholder="Re-enter new password" style="width:100%; padding:9px; border:1px solid #cbd5e1; border-radius:6px;"></div>
+
+        <div class="profile-section-label-a">Confirm It's You</div>
+        <div style="margin-bottom:14px;"><label style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Current Password</label><input type="password" id="profileCurrentPasswordA" placeholder="Required to save any change" style="width:100%; padding:9px; border:1px solid #cbd5e1; border-radius:6px;"></div>
+
+        <button type="button" class="btn-history-link" style="width:100%; justify-content:center;" onclick="submitProfileUpdateA()" id="profileSaveBtnA">Save Changes</button>
+        <div id="profileModalMsgA" class="alert-toast" style="text-align:center; font-size:12px; padding:8px; border-radius:6px;"></div>
     </div>
 </div>
 
@@ -859,6 +900,7 @@
 
     let jobsCacheArray = []; let openAdminHistoryTracker = null;
     let currentUsername = ''; let currentUserRole = ''; let isCurrentUserSuperAdmin = false;
+    let currentProfilePicUrlA = ''; let selectedProfilePicBase64A = null; // NEW v11.10
     let currentFilteredJobs = []; // tracks whatever is currently visible after filters, used by report generator
     let selectedOverrideJobNum = null; // tracks which job card is currently selected for the Modify Overrides panel
     const AUTH_SESSION_KEY = 'sap_admin_session';
@@ -2248,7 +2290,7 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         tbody.innerHTML = allUsersList.map(u => `
             <tr>
                 <td>${esc_(u.username)}</td>
-                <td>${esc_(u.techName)}</td>
+                <td>${u.profilePicUrl ? `<img src="${u.profilePicUrl}" class="user-avatar-thumb" onerror="this.outerHTML='<span class=\\'user-avatar-thumb-fallback\\'>${getInitialsA(u.techName)}</span>'">` : `<span class="user-avatar-thumb-fallback">${getInitialsA(u.techName)}</span>`} ${esc_(u.techName)}</td>
                 <td>${u.role ? `<span style="background:#1e3a8a; color:white; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:700;">${esc_(u.role)}</span>` : 'Technician'}</td>
                 <td>
                     <a class="history-link" onclick="editUserRow(${jsAttr_(u.username)}, ${jsAttr_(u.techName)}, ${jsAttr_(u.role)})">✏️ Edit</a> &nbsp;
@@ -2848,16 +2890,18 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         if (!saved) return;
         try {
             const parsed = JSON.parse(saved);
-            grantAccess(parsed.techName, parsed.username, parsed.role);
+            grantAccess(parsed.techName, parsed.username, parsed.role, parsed.profilePicUrl);
         } catch (e) {
             sessionStorage.removeItem(AUTH_SESSION_KEY);
         }
     }
 
-    function grantAccess(techName, username, role) {
+    function grantAccess(techName, username, role, profilePicUrl) {
         currentUsername = username || '';
         currentUserRole = role || '';
         isCurrentUserSuperAdmin = (currentUserRole || '').trim().toLowerCase() === 'super admin';
+        currentProfilePicUrlA = profilePicUrl || '';
+        updateProfileAvatarUIA(techName);
 
         document.getElementById('loginGate').style.display = 'none';
         document.getElementById('sessionBar').style.display = 'flex';
@@ -2876,6 +2920,129 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         location.reload();
     }
 
+    // ── Profile Settings modal (NEW v11.10) ─────────────────────────────
+    function getInitialsA(name) {
+        const parts = String(name || '?').trim().split(/\s+/).filter(Boolean);
+        if (parts.length === 0) return '?';
+        if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+
+    function updateProfileAvatarUIA(techName) {
+        const label = techName || (document.getElementById('loggedInTechName') ? document.getElementById('loggedInTechName').innerText : '');
+        const img = document.getElementById('profileAvatarImgA');
+        const fallback = document.getElementById('profileAvatarFallbackA');
+        if (!img || !fallback) return;
+        if (currentProfilePicUrlA) {
+            img.src = currentProfilePicUrlA; img.style.display = 'block'; fallback.style.display = 'none';
+        } else {
+            img.style.display = 'none'; fallback.style.display = 'flex'; fallback.innerText = getInitialsA(label);
+        }
+    }
+
+    function openProfileModalA() {
+        selectedProfilePicBase64A = null;
+        document.getElementById('profileNewPasswordA').value = "";
+        document.getElementById('profileConfirmPasswordA').value = "";
+        document.getElementById('profileCurrentPasswordA').value = "";
+        document.getElementById('profilePicFileInputA').value = "";
+        document.getElementById('profileModalMsgA').style.display = 'none';
+
+        const previewImg = document.getElementById('profilePicPreviewImgA');
+        const previewFallback = document.getElementById('profilePicPreviewFallbackA');
+        const label = document.getElementById('loggedInTechName') ? document.getElementById('loggedInTechName').innerText : '';
+        if (currentProfilePicUrlA) {
+            previewImg.src = currentProfilePicUrlA; previewImg.style.display = 'block'; previewFallback.style.display = 'none';
+        } else {
+            previewImg.style.display = 'none'; previewFallback.style.display = 'flex'; previewFallback.innerText = getInitialsA(label);
+        }
+        document.getElementById('profileModalOverlayA').style.display = 'flex';
+    }
+
+    function closeProfileModalA() {
+        document.getElementById('profileModalOverlayA').style.display = 'none';
+    }
+
+    function handleProfilePicSelectedA(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) { alert('Please choose an image file.'); event.target.value = ""; return; }
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            selectedProfilePicBase64A = e.target.result;
+            const previewImg = document.getElementById('profilePicPreviewImgA');
+            const previewFallback = document.getElementById('profilePicPreviewFallbackA');
+            previewImg.src = selectedProfilePicBase64A; previewImg.style.display = 'block'; previewFallback.style.display = 'none';
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function submitProfileUpdateA() {
+        const msgBox = document.getElementById('profileModalMsgA');
+        const currentPassword = document.getElementById('profileCurrentPasswordA').value;
+        const newPassword = document.getElementById('profileNewPasswordA').value;
+        const confirmPassword = document.getElementById('profileConfirmPasswordA').value;
+
+        msgBox.style.display = 'none';
+
+        if (!currentPassword) {
+            msgBox.style.background = "#fee2e2"; msgBox.style.color = "#b91c1c";
+            msgBox.innerText = "❌ Enter your current password to confirm it's you."; msgBox.style.display = 'block';
+            return;
+        }
+        if (newPassword && newPassword !== confirmPassword) {
+            msgBox.style.background = "#fee2e2"; msgBox.style.color = "#b91c1c";
+            msgBox.innerText = "❌ New password and confirmation don't match."; msgBox.style.display = 'block';
+            return;
+        }
+        if (!newPassword && !selectedProfilePicBase64A) {
+            msgBox.style.background = "#fee2e2"; msgBox.style.color = "#b91c1c";
+            msgBox.innerText = "❌ Choose a new photo and/or enter a new password before saving."; msgBox.style.display = 'block';
+            return;
+        }
+
+        const saveBtn = document.getElementById('profileSaveBtnA');
+        saveBtn.disabled = true; saveBtn.innerText = "Saving...";
+
+        const payload = { action: "updateMyProfile", username: currentUsername, currentPassword: currentPassword };
+        if (newPassword) payload.newPassword = newPassword;
+        if (selectedProfilePicBase64A) { payload.imageBase64 = selectedProfilePicBase64A; payload.imageName = currentUsername + "_profile.jpg"; }
+
+        fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) })
+        .then(res => res.json())
+        .then(data => {
+            saveBtn.disabled = false; saveBtn.innerText = "Save Changes";
+            if (data.success) {
+                if (data.profilePicUrl) {
+                    currentProfilePicUrlA = data.profilePicUrl;
+                    updateProfileAvatarUIA();
+                    // Keep the persisted session in sync so a page refresh still shows the new photo.
+                    try {
+                        const saved = JSON.parse(sessionStorage.getItem(AUTH_SESSION_KEY) || '{}');
+                        saved.profilePicUrl = data.profilePicUrl;
+                        sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(saved));
+                    } catch (e) {}
+                }
+                msgBox.style.background = "#d1fae5"; msgBox.style.color = "#065f46";
+                msgBox.innerText = "✅ Updated: " + data.changed.join(", ") + ".";
+                msgBox.style.display = 'block';
+                document.getElementById('profileNewPasswordA').value = "";
+                document.getElementById('profileConfirmPasswordA').value = "";
+                document.getElementById('profileCurrentPasswordA').value = "";
+                selectedProfilePicBase64A = null;
+            } else {
+                msgBox.style.background = "#fee2e2"; msgBox.style.color = "#b91c1c";
+                msgBox.innerText = "❌ " + (data.error || "Could not save changes.");
+                msgBox.style.display = 'block';
+            }
+        })
+        .catch(() => {
+            saveBtn.disabled = false; saveBtn.innerText = "Save Changes";
+            msgBox.style.background = "#fee2e2"; msgBox.style.color = "#b91c1c";
+            msgBox.innerText = "❌ Network error. Please retry."; msgBox.style.display = 'block';
+        });
+    }
+
     document.getElementById('loginForm').addEventListener('submit', function(e) {
         e.preventDefault();
         const username = document.getElementById('loginUsername').value.trim();
@@ -2889,8 +3056,8 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify({ techName: data.techName, username: data.username, role: data.role }));
-                grantAccess(data.techName, data.username, data.role);
+                sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify({ techName: data.techName, username: data.username, role: data.role, profilePicUrl: data.profilePicUrl }));
+                grantAccess(data.techName, data.username, data.role, data.profilePicUrl);
             } else {
                 errBox.innerText = data.error || 'Invalid username or password.';
                 errBox.style.display = 'block';

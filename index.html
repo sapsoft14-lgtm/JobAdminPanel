@@ -70,13 +70,13 @@
         .row-flash-highlight td { animation: rowFlashHighlight 1.6s ease-out; }
         
         /* Fluid Metrics Grid Engine */
-        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
+        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 20px; }
         @media (max-width: 650px) { 
             .metrics-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; } 
         }
-        .metric-card { color: white; padding: 12px; border-radius: 8px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .metric-title { font-size: 11px; text-transform: uppercase; font-weight: 600; opacity: 0.9; }
-        .metric-value { font-size: 22px; font-weight: bold; margin-top: 2px; }
+        .metric-card { color: white; padding: 9px; border-radius: 8px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .metric-title { font-size: 10px; text-transform: uppercase; font-weight: 600; opacity: 0.9; }
+        .metric-value { font-size: 18px; font-weight: bold; margin-top: 2px; }
         
         /* Upgraded Control Bar Auto-Layout Fluid Grid */
         .controls-bar { background: #fff; padding: 15px; border-radius: 8px 8px 0 0; border: 1px solid #e2e8f0; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; align-items: center; }
@@ -147,6 +147,24 @@
         .admin-timeline-node { border-bottom: 1px dashed #cbd5e1; padding-bottom: 8px; margin-bottom: 8px; }
         .admin-timeline-node:last-child { border: none; margin: 0; padding: 0; }
         .admin-thumb { width: 50px; height: 50px; object-fit: cover; border-radius: 4px; margin: 5px 5px 0 0; cursor: pointer; border: 1px solid #cbd5e1; background-color: #000; }
+
+        /* ── Facebook-style Activity Feed for Admin's View History panel (NEW) ── */
+        .admin-feed-refresh-row { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+        .admin-activity-feed { display: flex; flex-direction: column; gap: 12px; }
+        .admin-comment-item { display: flex; gap: 10px; align-items: flex-start; }
+        .admin-comment-avatar { width: 34px; height: 34px; border-radius: 50%; background: #1e3a8a; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; flex-shrink: 0; overflow: hidden; padding: 0; }
+        .admin-comment-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+        .admin-comment-bubble { background: white; border: 1px solid #e2e8f0; border-radius: 14px; padding: 9px 13px; flex: 1; min-width: 0; }
+        .admin-comment-bubble-head { display: flex; align-items: center; flex-wrap: wrap; gap: 5px 9px; margin-bottom: 3px; }
+        .admin-comment-author { font-weight: 700; font-size: 12.5px; color: #1e293b; }
+        .admin-comment-time { font-size: 10.5px; color: #94a3b8; }
+        .admin-comment-status-chip { padding: 2px 8px; border-radius: 20px; font-size: 9.5px; font-weight: 700; color: #fff; text-transform: uppercase; white-space: nowrap; }
+        .admin-comment-notes { font-size: 12.5px; color: #475569; line-height: 1.4; white-space: pre-wrap; word-break: break-word; }
+        .admin-comment-images { display: flex; flex-wrap: wrap; margin-top: 6px; }
+        body.dark-mode .admin-comment-bubble { background: #1e293b; border-color: #334155; }
+        body.dark-mode .admin-comment-author { color: #e2e8f0; }
+        body.dark-mode .admin-comment-time { color: #64748b; }
+        body.dark-mode .admin-comment-notes { color: #cbd5e1; }
         
         .lightbox-modal { display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); align-items: center; justify-content: center; }
 
@@ -255,10 +273,22 @@
         .wschart-track { flex: 1; background: #f1f5f9; border-radius: 4px; height: 16px; position: relative; overflow: hidden; }
         .wschart-fill { height: 100%; border-radius: 4px; transition: width .3s ease; }
         .wschart-value { width: 26px; text-align: right; font-weight: 800; color: #1e293b; font-size: 12px; }
+        .dist-chart-slider { display: flex; width: 200%; transition: transform .35s ease; }
+        .dist-chart-slider.showing-tech { transform: translateX(-50%); }
+        .dist-chart-pane { width: 50%; flex-shrink: 0; box-sizing: border-box; padding-right: 4px; }
+        .dist-chart-viewport { overflow: hidden; }
 
         /* NEW: "Jobs by Workshop" chart + "Oldest Jobs" slideshow side-by-side layout */
         .dashboard-panels-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: stretch; }
         .dashboard-panels-row .card { margin-bottom: 0; display: flex; flex-direction: column; }
+        .collapsible-section { border-radius: 10px; }
+        .collapsible-header { display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 16px; font-size: 13px; font-weight: 700; color: #1e3a8a; box-shadow: 0 2px 6px rgba(0,0,0,0.03); margin-bottom: 12px; }
+        .collapsible-header:hover { background: #f8fafc; }
+        .collapsible-chevron { font-size: 13px; color: #64748b; transition: transform .25s ease; }
+        .collapsible-section.collapsed .collapsible-chevron { transform: rotate(-90deg); }
+        .collapsible-section.collapsed .dashboard-panels-row { display: none; }
+        body.dark-mode .collapsible-header { background: #1e293b; border-color: #334155; color: #e2e8f0; }
+        body.dark-mode .collapsible-header:hover { background: #263449; }
         @media (max-width: 900px) {
             .dashboard-panels-row { grid-template-columns: 1fr; }
         }
@@ -584,20 +614,34 @@
             <div class="metric-card" style="background:#7c3aed;"><div class="metric-title">Warranty Claimed</div><div id="mWarrantyClaimed" class="metric-value">0</div></div>
         </div>
 
-        <div class="dashboard-panels-row" style="margin-bottom:20px;">
-            <div class="card" style="margin-bottom:0;">
-                <h2>🏭 Jobs by Workshop <span style="font-size:11px; font-weight:400; color:#94a3b8; text-transform:none;">(reflects current filters)</span></h2>
-                <div id="workshopChartBars"></div>
+        <div class="collapsible-section" style="margin-bottom:20px;">
+            <div class="collapsible-header" onclick="toggleDashboardPanels()">
+                <span>📊 Jobs by Technician &amp; Oldest Jobs in Queue</span>
+                <span class="collapsible-chevron" id="dashboardPanelsChevron">▾</span>
             </div>
+            <div class="dashboard-panels-row" id="dashboardPanelsRow">
+                <div class="card" style="margin-bottom:0;">
+                    <h2 style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                        <span id="distChartTitle">🏭 Jobs by Workshop <span style="font-size:11px; font-weight:400; color:#94a3b8; text-transform:none;">(reflects current filters)</span></span>
+                        <button type="button" id="distChartToggleBtn" onclick="event.stopPropagation(); toggleDistChartView()" title="Switch between Workshop and Technician view" style="flex-shrink:0; border:none; background:#eef2ff; color:#4338ca; font-size:11px; font-weight:700; padding:5px 10px; border-radius:20px; cursor:pointer; white-space:nowrap;">👨‍💻 View by Technician ⇄</button>
+                    </h2>
+                    <div class="dist-chart-viewport">
+                        <div class="dist-chart-slider" id="distChartSlider">
+                            <div class="dist-chart-pane" id="workshopChartBars"></div>
+                            <div class="dist-chart-pane" id="techChartBars"></div>
+                        </div>
+                    </div>
+                </div>
 
-            <div class="card" style="margin-bottom:0;">
-                <h2>⏳ Oldest Jobs in Queue <span style="font-size:11px; font-weight:400; color:#94a3b8; text-transform:none;">(last 5, oldest first)</span></h2>
-                <div class="oldest-jobs-slideshow" id="oldestJobsSlideshow" onmouseenter="pauseOldestJobsAutoplay()" onmouseleave="resumeOldestJobsAutoplay()">
-                    <div class="oldest-slide-viewport" id="oldestSlideViewport"></div>
-                    <div class="oldest-slide-nav" id="oldestSlideNav" style="display:none;">
-                        <button type="button" onclick="stepOldestJobsSlide(-1)" aria-label="Previous oldest job">‹</button>
-                        <div class="oldest-slide-dots" id="oldestSlideDots"></div>
-                        <button type="button" onclick="stepOldestJobsSlide(1)" aria-label="Next oldest job">›</button>
+                <div class="card" style="margin-bottom:0;">
+                    <h2>⏳ Oldest Jobs in Queue <span style="font-size:11px; font-weight:400; color:#94a3b8; text-transform:none;">(last 5, oldest first)</span></h2>
+                    <div class="oldest-jobs-slideshow" id="oldestJobsSlideshow" onmouseenter="pauseOldestJobsAutoplay()" onmouseleave="resumeOldestJobsAutoplay()">
+                        <div class="oldest-slide-viewport" id="oldestSlideViewport"></div>
+                        <div class="oldest-slide-nav" id="oldestSlideNav" style="display:none;">
+                            <button type="button" onclick="stepOldestJobsSlide(-1)" aria-label="Previous oldest job">‹</button>
+                            <div class="oldest-slide-dots" id="oldestSlideDots"></div>
+                            <button type="button" onclick="stepOldestJobsSlide(1)" aria-label="Next oldest job">›</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -617,8 +661,8 @@
                 <option value="CCTV Camera">CCTV Camera</option>
                 <option value="Other">Other</option>
             </select>
-            <select id="fWorkshop" onchange="renderPipelineTable()"><option value="ALL">All Workshops</option><option value="SAP -  Shop 14">SAP -  Shop 14</option><option value="kalagedihen prj">kalagedihen prj</option><option value="Mr. Gayan - Kadawatha">Mr. Gayan - Kadawatha</option><option value="SAP - Shop 68">SAP - Shop 68</option><option value="SAP CCTV Shop Gampaha">SAP CCTV Shop Gampaha</option><option value="Smart Technology">Smart Technology</option><option value="Ishika - Udigampola">Ishika - Udigampola</option></select>
-            <select id="fTech" onchange="renderPipelineTable()"><option value="ALL">All Technicians</option><option value="WM Nayanajijth">WM Nayanajijth</option><option value="Supun Samarasinghe">Supun Samarasinghe</option><option value="Isuru Lakshitha">Isuru Lakshitha</option><option value="Ayesh Harshana">Ayesh Harshana</option><option value="Dilka Dulakshana">Dilka Dulakshana</option><option value="Front Officer">Front Officer</option><option value="Chamith Sandeepa">Chamith Sandeepa</option><option value="Pradeep Kaushalya">Pradeep Kaushalya</option></select>
+            <select id="fWorkshop" onchange="renderPipelineTable()"><option value="ALL">All Workshops</option><option value="UNASSIGNED">🚫 Unassigned Workshop</option><option value="SAP -  Shop 14">SAP -  Shop 14</option><option value="kalagedihen prj">kalagedihen prj</option><option value="Mr. Gayan - Kadawatha">Mr. Gayan - Kadawatha</option><option value="SAP - Shop 68">SAP - Shop 68</option><option value="SAP CCTV Shop Gampaha">SAP CCTV Shop Gampaha</option><option value="Smart Technology">Smart Technology</option><option value="Ishika - Udigampola">Ishika - Udigampola</option></select>
+            <select id="fTech" onchange="renderPipelineTable()"><option value="ALL">All Technicians</option><option value="UNASSIGNED">🚫 Unassigned Technician</option><option value="WM Nayanajijth">WM Nayanajijth</option><option value="Supun Samarasinghe">Supun Samarasinghe</option><option value="Isuru Lakshitha">Isuru Lakshitha</option><option value="Ayesh Harshana">Ayesh Harshana</option><option value="Dilka Dulakshana">Dilka Dulakshana</option><option value="Front Officer">Front Officer</option><option value="Chamith Sandeepa">Chamith Sandeepa</option><option value="Pradeep Kaushalya">Pradeep Kaushalya</option></select>
             <select id="fStatus" onchange="renderPipelineTable()">
                 <option value="ALL">All Statuses</option>
                 <option value="Pending">Pending</option>
@@ -899,6 +943,7 @@
     // ─────────────────────────────────────────────────────────────────────────
 
     let jobsCacheArray = []; let openAdminHistoryTracker = null;
+    let adminProfilePicsCache = {}; // NEW: operator name -> profile pic URL, for the Facebook-style history feed
     let currentUsername = ''; let currentUserRole = ''; let isCurrentUserSuperAdmin = false;
     let currentProfilePicUrlA = ''; let selectedProfilePicBase64A = null; // NEW v11.10
     let currentFilteredJobs = []; // tracks whatever is currently visible after filters, used by report generator
@@ -1053,7 +1098,7 @@ function createJitteredPoller(fn, baseMs, jitterMs) {
         fetch(`${WEB_APP_URL}?action=getWorkshopsList`).then(res => res.json()).then(data => {
             if(data.success) {
                 const regWork = document.getElementById('workshop'); const ovrWork = document.getElementById('oWorkshop'); const filWork = document.getElementById('fWorkshop');
-                regWork.innerHTML = '<option value="">Select Workshop Location</option>'; ovrWork.innerHTML = '<option value="">Override Location</option>'; filWork.innerHTML = '<option value="ALL">All Workshops</option>';
+                regWork.innerHTML = '<option value="">Select Workshop Location</option>'; ovrWork.innerHTML = '<option value="">Override Location</option>'; filWork.innerHTML = '<option value="ALL">All Workshops</option><option value="UNASSIGNED">🚫 Unassigned Workshop</option>';
                 data.workshops.forEach(wName => { const opt = `<option value="${wName}">${wName}</option>`; regWork.innerHTML += opt; ovrWork.innerHTML += opt; filWork.innerHTML += opt; });
             }
         });
@@ -1061,7 +1106,7 @@ function createJitteredPoller(fn, baseMs, jitterMs) {
         fetch(`${WEB_APP_URL}?action=getTechniciansList`).then(res => res.json()).then(data => {
             if(data.success) {
                 const regTech = document.getElementById('tech'); const ovrTech = document.getElementById('oTech'); const filTech = document.getElementById('fTech');
-                regTech.innerHTML = '<option value="">Select Person</option>'; ovrTech.innerHTML = '<option value="">Assign Person</option>'; filTech.innerHTML = '<option value="ALL">All Technicians</option>';
+                regTech.innerHTML = '<option value="">Select Person</option>'; ovrTech.innerHTML = '<option value="">Assign Person</option>'; filTech.innerHTML = '<option value="ALL">All Technicians</option><option value="UNASSIGNED">🚫 Unassigned Technician</option>';
                 data.technicians.forEach(name => { const opt = `<option value="${name}">${name}</option>`; regTech.innerHTML += opt; ovrTech.innerHTML += opt; filTech.innerHTML += opt; });
             }
         });
@@ -1163,6 +1208,33 @@ function createJitteredPoller(fn, baseMs, jitterMs) {
         document.getElementById('mWarrantyClaimed').innerText = stats.WarrantyClaimed;
     }
 
+    // Collapses/expands the "Jobs by Technician & Oldest Jobs in Queue" panel
+    // row so it can be tucked away to save screen space.
+    function toggleDashboardPanels() {
+        const section = document.querySelector('.collapsible-section');
+        if (section) section.classList.toggle('collapsed');
+    }
+
+    // Toggles the sliding "Jobs by Workshop" / "Jobs by Technician" distribution
+    // card between its two panes and swaps the header title + button label.
+    let distChartShowingTech = false;
+    function toggleDistChartView() {
+        distChartShowingTech = !distChartShowingTech;
+        const slider = document.getElementById('distChartSlider');
+        const title = document.getElementById('distChartTitle');
+        const btn = document.getElementById('distChartToggleBtn');
+        if (!slider || !title || !btn) return;
+
+        slider.classList.toggle('showing-tech', distChartShowingTech);
+        if (distChartShowingTech) {
+            title.innerHTML = '👨‍💻 Jobs by Technician <span style="font-size:11px; font-weight:400; color:#94a3b8; text-transform:none;">(reflects current filters)</span>';
+            btn.innerHTML = '🏭 View by Workshop ⇄';
+        } else {
+            title.innerHTML = '🏭 Jobs by Workshop <span style="font-size:11px; font-weight:400; color:#94a3b8; text-transform:none;">(reflects current filters)</span>';
+            btn.innerHTML = '👨‍💻 View by Technician ⇄';
+        }
+    }
+
     // Small "Jobs by Workshop" bar chart — counts the currently filtered jobs by
     // workshop location, grouping any job with no workshop set under "Unassigned".
     function renderWorkshopChart(filteredJobs) {
@@ -1185,6 +1257,37 @@ function createJitteredPoller(fn, baseMs, jitterMs) {
         container.innerHTML = entries.map(([name, count]) => {
             const pct = maxCount > 0 ? Math.round((count / maxCount) * 100) : 0;
             const barColor = name === 'Unassigned' ? '#ea580c' : '#2563eb';
+            const safeName = name.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return `<div class="wschart-row">
+                <span class="wschart-label" title="${safeName}">${safeName}</span>
+                <div class="wschart-track"><div class="wschart-fill" style="width:${pct}%; background:${barColor};"></div></div>
+                <span class="wschart-value">${count}</span>
+            </div>`;
+        }).join('');
+    }
+
+    // Small "Jobs by Technician" bar chart — counts the currently filtered jobs
+    // by assigned technician, grouping any job with no tech set under "Unassigned".
+    function renderTechChart(filteredJobs) {
+        const container = document.getElementById('techChartBars');
+        if (!container) return;
+
+        const counts = {};
+        filteredJobs.forEach(job => {
+            const key = (job.tech && job.tech.trim()) ? job.tech.trim() : 'Unassigned';
+            counts[key] = (counts[key] || 0) + 1;
+        });
+
+        const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+        if (entries.length === 0) {
+            container.innerHTML = '<div style="font-size:12px; color:#94a3b8; text-align:center; padding:6px 0;">No jobs match the current filters.</div>';
+            return;
+        }
+
+        const maxCount = Math.max(...entries.map(e => e[1]));
+        container.innerHTML = entries.map(([name, count]) => {
+            const pct = maxCount > 0 ? Math.round((count / maxCount) * 100) : 0;
+            const barColor = name === 'Unassigned' ? '#ea580c' : '#059669';
             const safeName = name.replace(/</g, '&lt;').replace(/>/g, '&gt;');
             return `<div class="wschart-row">
                 <span class="wschart-label" title="${safeName}">${safeName}</span>
@@ -1377,8 +1480,8 @@ function createJitteredPoller(fn, baseMs, jitterMs) {
                 if(!quickHaystack.includes(sQuick)) return;
             }
             if(sItemType !== "ALL" && job.itemType !== sItemType) return;
-            if(sWork !== "ALL" && job.workshop !== sWork) return;
-            if(sTech !== "ALL" && job.tech !== sTech) return;
+            if(sWork !== "ALL" && !(sWork === "UNASSIGNED" ? !(job.workshop && job.workshop.trim()) : job.workshop === sWork)) return;
+            if(sTech !== "ALL" && !(sTech === "UNASSIGNED" ? !(job.tech && job.tech.trim()) : job.tech === sTech)) return;
             if(sStat !== "ALL" && job.status !== sStat) return;
             
             // The HIDE rule is skipped when a handover-date filter is active,
@@ -1527,6 +1630,7 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         // Instantly update the metrics cards with filtered dataset criteria
         calculateFilteredCounters(matchingJobsList);
         renderWorkshopChart(matchingJobsList);
+        renderTechChart(matchingJobsList);
         renderOldestJobsSlideshow(matchingJobsList);
         // Keep a reference so "Generate Report" always reports on what's currently visible
         currentFilteredJobs = matchingJobsList;
@@ -1790,8 +1894,39 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         else { openAdminHistoryTracker = null; }
     }
 
+    // NEW: operator name -> initials, matching the look used on the Technician Portal's feed
+    function getAdminCommentInitials(name) {
+        const parts = String(name || '?').trim().split(/\s+/).filter(Boolean);
+        if (parts.length === 0) return '?';
+        if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+
+    // NEW: renders a real profile photo when one exists for this operator (e.g. "Tech: John Doe" -> "John Doe"),
+    // otherwise falls back to an initials-circle, same pattern as the Technician Portal.
+    function getAdminAvatarHtml(operatorRaw) {
+        const cleanName = String(operatorRaw || '').replace(/^Tech:\s*/i, '').trim();
+        const picUrl = adminProfilePicsCache[cleanName];
+        if (picUrl) return `<div class="admin-comment-avatar"><img src="${picUrl}" onerror="this.parentElement.innerHTML='${getAdminCommentInitials(cleanName)}'"></div>`;
+        return `<div class="admin-comment-avatar">${getAdminCommentInitials(cleanName)}</div>`;
+    }
+
+    // NEW: fetches the same profile-pic map the Technician Portal uses, so avatars line up across both interfaces.
+    function loadAdminProfilePicsCache() {
+        fetch(`${WEB_APP_URL}?action=getDropdownDataMatrices`).then(res => res.json()).then(data => {
+            if(data.success) adminProfilePicsCache = data.profilePics || {};
+        }).catch(() => {});
+    }
+
+    // NEW: color per status, used for the small chip in each feed entry.
+    function getAdminStatusChipColor(status) {
+        const map = { 'Pending': '#f59e0b', 'Pending for Quotation': '#d97706', 'Ongoing': '#2563eb', 'Warranty Pending': '#6366f1', 'Completed': '#059669', 'Returned': '#b91c1c', "Can't Repair": '#ef4444', 'Warranty Claimed': '#8b5cf6', 'Customer Hold': '#0891b2' };
+        return map[status] || '#64748b';
+    }
+
     function renderAdminHistoryLogsContent(jobNum) {
         const panel = document.getElementById(`history-panel-${jobNum}`); if(!panel) return;
+        panel.innerHTML = `<div style="text-align:center; color:#94a3b8; font-size:12px; padding:10px 0;">Loading activity…</div>`;
         fetch(`${WEB_APP_URL}?action=getJobHistory&jobNum=${jobNum}`).then(res => res.json()).then(data => {
             if(!data.success || data.history.length === 0) { 
                 panel.innerHTML = `
@@ -1801,23 +1936,32 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
                     </div>`; 
                 return; 
             }
-            let historyHtml = `
-                <div style="display:flex; justify-content:flex-end; margin-bottom:8px;">
+            // Newest first, same ordering as the Technician Portal's feed.
+            const ordered = data.history.slice().reverse();
+            let feedHtml = `
+                <div class="admin-feed-refresh-row">
                     <button onclick="renderAdminHistoryLogsContent(${jobNum})" style="background:#1e3a8a; color:white; border:none; padding:4px 10px; border-radius:4px; font-size:11px; cursor:pointer; font-weight:bold;">🔄 Refresh Logs</button>
-                </div>`;
-            data.history.forEach(log => {
+                </div>
+                <div class="admin-activity-feed">`;
+            ordered.forEach(log => {
                 let thumbsHtml = "";
                 log.images.forEach(url => { if(url) thumbsHtml += `<img src="${url}" class="admin-thumb" onclick="launchAdminLightbox('${url}')" onerror="this.src='https://cdn-icons-png.flaticon.com/512/13434/13434972.png'">`; });
-                historyHtml += `
-                    <div class="admin-timeline-node">
-                        <div style="display:flex; justify-content:space-between; font-size:11px; color:#64748b; font-weight:bold;"><span>🗓️ ${log.timestamp}</span><span>Op: ${log.operator}</span></div>
-                        <div style="font-weight:600; font-size:12px; margin-top:2px;">State: <span style="color:#1e3a8a;">${log.status}</span></div>
-                        <div style="color:#475569; font-size:12.5px; margin-top:2px;">${log.notes}</div>
-                        <div style="display:flex; flex-wrap:wrap; margin-top:5px;">${thumbsHtml}</div>
-                    </div>
-                `;
+                feedHtml += `
+                    <div class="admin-comment-item">
+                        ${getAdminAvatarHtml(log.operator)}
+                        <div class="admin-comment-bubble">
+                            <div class="admin-comment-bubble-head">
+                                <span class="admin-comment-author">${log.operator}</span>
+                                <span class="admin-comment-status-chip" style="background:${getAdminStatusChipColor(log.status)};">${log.status}</span>
+                                <span class="admin-comment-time">🗓️ ${log.timestamp}</span>
+                            </div>
+                            <div class="admin-comment-notes">${log.notes || ''}</div>
+                            ${thumbsHtml ? `<div class="admin-comment-images">${thumbsHtml}</div>` : ''}
+                        </div>
+                    </div>`;
             });
-            panel.innerHTML = historyHtml;
+            feedHtml += `</div>`;
+            panel.innerHTML = feedHtml;
         });
     }
 
@@ -2864,6 +3008,7 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
 
     function initDashboardData() {
         loadDynamicWorkshopsAndTechDropdowns();
+        loadAdminProfilePicsCache();
         fetchLivePipelineData();
         fetchNotifications();
      createJitteredPoller(() => {

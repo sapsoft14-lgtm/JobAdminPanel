@@ -98,8 +98,11 @@
         .job-selected-badge { display: none; background: #1e3a8a; color: white; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 20px; margin-bottom: 10px; }
         #overrideForm.has-selection .job-selected-badge { display: inline-flex; align-items: center; gap: 6px; }
         
-        /* Status Tags Styling Matrix */
-        .status-tag { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; color: white; display: inline-block; white-space: nowrap; }
+        /* Status Tags Styling Matrix — the job's status is the single most
+           important thing on the card, so it's the boldest element: a large
+           shadowed pill, uppercase with letter-spacing, deliberately more
+           eye-catching than the secondary action buttons below it. */
+        .status-tag { padding: 7px 16px; border-radius: 20px; font-size: 13px; font-weight: 800; letter-spacing: 0.4px; text-transform: uppercase; color: white; display: inline-block; white-space: nowrap; box-shadow: 0 3px 10px rgba(0,0,0,0.22); }
         .status-Pending { background: #ea580c; } 
         .status-PendingforQuotation { background: #f59e0b; } /* NEW: Pending for Quotation status */
         .status-Ongoing { background: #2563eb; } 
@@ -182,17 +185,21 @@
         .invoice-status-Paid { background: #d1fae5; color: #059669; }
         .invoice-status-Partial { background: #fef3c7; color: #b45309; }
         .invoice-status-Unpaid { background: #fee2e2; color: #b91c1c; }
-        .btn-invoice-link { display: inline-flex; align-items: center; gap: 5px; color: #fff; background: linear-gradient(135deg, #8b5cf6, #6d28d9); margin-left: 10px; margin-top: 6px; cursor: pointer; font-size: 11px; font-weight: 800; padding: 6px 13px; border-radius: 20px; text-decoration: none; box-shadow: 0 2px 6px rgba(109,40,217,0.35); transition: transform .15s ease, box-shadow .15s ease, background .15s ease; }
-        .btn-invoice-link:hover { transform: translateY(-1px); box-shadow: 0 5px 12px rgba(109,40,217,0.45); background: linear-gradient(135deg, #a78bfa, #7c3aed); }
-        .btn-invoice-link:active { transform: translateY(0); box-shadow: 0 2px 5px rgba(109,40,217,0.35); }
+        /* NEW: pill-button treatment for the job queue's secondary actions
+           (View History / Reprint Card / Invoice). Deliberately soft/outlined
+           — the job status badge above is the visual focal point, these are
+           supporting actions and shouldn't compete with it. */
+        .btn-invoice-link { display: inline-flex; align-items: center; gap: 5px; background: #f5f3ff; color: #6d28d9; border: 1.5px solid #ddd6fe; margin-left: 10px; margin-top: 6px; cursor: pointer; font-size: 10.5px; font-weight: 700; padding: 5px 11px; border-radius: 20px; text-decoration: none; transition: background .15s ease, border-color .15s ease; }
+        .btn-invoice-link:hover { background: #ede9fe; border-color: #c4b5fd; }
+        .btn-invoice-link:active { transform: translateY(0); }
 
         /* Pill-button treatment for the job queue's View History / Reprint Card actions, matching the Invoice button */
-        .btn-pill-action { display: inline-flex; align-items: center; gap: 5px; color: #fff; margin-top: 6px; cursor: pointer; font-size: 11px; font-weight: 800; padding: 6px 13px; border-radius: 20px; text-decoration: none; transition: transform .15s ease, box-shadow .15s ease, background .15s ease; }
+        .btn-pill-action { display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; cursor: pointer; font-size: 10.5px; font-weight: 700; padding: 5px 11px; border-radius: 20px; text-decoration: none; border: 1.5px solid transparent; transition: background .15s ease, border-color .15s ease; }
         .btn-pill-action:active { transform: translateY(0); }
-        .btn-history-link { background: linear-gradient(135deg, #38bdf8, #2563eb); box-shadow: 0 2px 6px rgba(37,99,235,0.35); }
-        .btn-history-link:hover { transform: translateY(-1px); box-shadow: 0 5px 12px rgba(37,99,235,0.45); background: linear-gradient(135deg, #60c8fb, #3b82f6); }
-        .btn-print-link { background: linear-gradient(135deg, #34d399, #059669); box-shadow: 0 2px 6px rgba(5,150,105,0.35); margin-left: 10px; }
-        .btn-print-link:hover { transform: translateY(-1px); box-shadow: 0 5px 12px rgba(5,150,105,0.45); background: linear-gradient(135deg, #5eead4, #10b981); }
+        .btn-history-link { background: #eff6ff; color: #2563eb; border-color: #bfdbfe; }
+        .btn-history-link:hover { background: #dbeafe; border-color: #93c5fd; }
+        .btn-print-link { background: #ecfdf5; color: #059669; border-color: #a7f3d0; margin-left: 10px; }
+        .btn-print-link:hover { background: #d1fae5; border-color: #6ee7b7; }
 
         /* ── Invoice editor modal ─────────────────────────────────────────── */
         .invoice-modal-overlay { display: none; position: fixed; z-index: 10001; left: 0; top: 0; width: 100%; height: 100%; background: rgba(15,23,42,0.55); align-items: flex-start; justify-content: center; overflow-y: auto; padding: 30px 12px; }
@@ -363,6 +370,24 @@
         body.dark-mode .success-banner { background: #052e1f; color: #6ee7b7; border-color: #065f46; }
         body.dark-mode .wschart-label, body.dark-mode .wschart-value { color: #e2e8f0; }
         body.dark-mode .wschart-track { background: #0f172a; }
+        /* NEW: dark-mode treatment for the job queue's pill action buttons
+           (View History / Reprint Card / Invoice / Customer Informed) — same
+           soft-outlined language as light mode, recolored onto dark chips so
+           they match the rest of the dark theme instead of staying pale. */
+        body.dark-mode .btn-history-link { background: #0c2440; color: #60a5fa; border-color: #1e3a8a; }
+        body.dark-mode .btn-history-link:hover { background: #123058; border-color: #2563eb; }
+        body.dark-mode .btn-print-link { background: #052e1f; color: #34d399; border-color: #065f46; }
+        body.dark-mode .btn-print-link:hover { background: #064e3b; border-color: #10b981; }
+        body.dark-mode .btn-invoice-link { background: #2e1065; color: #c4b5fd; border-color: #5b21b6; }
+        body.dark-mode .btn-invoice-link:hover { background: #3b0764; border-color: #7c3aed; }
+        body.dark-mode .btn-informed { background: #083344; color: #67e8f9; border-color: #0e7490; }
+        body.dark-mode .btn-informed:hover { background: #0c4a5e; border-color: #0891b2; }
+        body.dark-mode .btn-informed:disabled { opacity: 0.5; }
+        /* NEW: date-filter-bar's date inputs were pinned to a light background by a
+           higher-specificity light-mode rule, so they stayed white in dark mode —
+           give them an explicit dark-mode override to match the rest of the bar. */
+        body.dark-mode .date-filter-bar input[type="date"] { background-color: #0f172a; border-color: #334155; color: #e2e8f0; }
+        body.dark-mode .date-filter-bar input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.8); }
         /* Re-tint a handful of hardcoded light-theme inline text colors used inside the
            dynamically-rendered pipeline rows/history log, so they stay readable on dark backgrounds */
         body.dark-mode [style*="color:#1e3a8a"] { color: #60a5fa !important; }
@@ -1936,8 +1961,14 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
                     </div>`; 
                 return; 
             }
-            // Newest first, same ordering as the Technician Portal's feed.
-            const ordered = data.history.slice().reverse();
+            // Newest first. Sort by the actual parsed timestamp rather than
+            // assuming the backend's row order — stays correct even if the
+            // sheet/API order ever changes. Same fix as the Technician Portal.
+            const raw = data.history.slice();
+            const allTimestampsParseable = raw.every(log => !isNaN(new Date(log.timestamp).getTime()));
+            const ordered = allTimestampsParseable
+                ? raw.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+                : raw.reverse(); // fallback: sheet rows are appended oldest→newest, so reversing puts newest first
             let feedHtml = `
                 <div class="admin-feed-refresh-row">
                     <button onclick="renderAdminHistoryLogsContent(${jobNum})" style="background:#1e3a8a; color:white; border:none; padding:4px 10px; border-radius:4px; font-size:11px; cursor:pointer; font-weight:bold;">🔄 Refresh Logs</button>

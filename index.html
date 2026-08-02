@@ -489,6 +489,7 @@
     <button type="button" class="admin-tab-btn active" id="tabBtnPipeline" onclick="switchAdminTab('pipeline')">📋 Jobs Dashboard</button>
     <button type="button" class="admin-tab-btn" id="tabBtnInvoices" onclick="switchAdminTab('invoices')">🧾 Invoices</button>
     <button type="button" class="admin-tab-btn" id="tabBtnUsers" onclick="switchAdminTab('users')" style="display:none;">👥 Users &amp; Workshops</button>
+    <button type="button" class="admin-tab-btn" id="tabBtnVisits" onclick="switchAdminTab('visits')">📱 QR Scan Log</button>
     <a href="https://sapsoft14-lgtm.github.io/SAPPURCHASING/" target="_blank" rel="noopener" class="admin-tab-btn" style="text-decoration:none; display:inline-flex; align-items:center;">🛒 Purchasing Ledger</a>
 </div>
 
@@ -830,6 +831,20 @@
                     <tr><td colspan="2" style="padding:20px; text-align:center; color:#94a3b8;">Loading…</td></tr>
                 </tbody>
             </table>
+        </div>
+    </div>
+</div>
+
+<!-- ── QR Scan / Visit Log ──────────────────────────────────────────────── -->
+<div class="invoices-container" id="visitsView" style="display:none;">
+    <div class="card">
+        <h2 style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+            <span>📱 Job Card QR Scan Log <span style="font-size:11px; font-weight:400; color:#94a3b8; text-transform:none;">— every time a customer's status page loads from the QR</span></span>
+            <button type="button" onclick="fetchPortalVisitsLog()" style="border:none; background:#eef2ff; color:#4338ca; font-size:11px; font-weight:700; padding:5px 10px; border-radius:20px; cursor:pointer;">🔄 Refresh</button>
+        </h2>
+        <input type="text" id="fVisitsSearch" placeholder="🔎 Filter by Job #, Customer or Mobile..." oninput="renderVisitsLog()" autocomplete="off" style="width:100%; box-sizing:border-box; margin-bottom:14px;">
+        <div id="visitsLogContainer">
+            <div style="padding:20px; text-align:center; color:#94a3b8;">Loading…</div>
         </div>
     </div>
 </div>
@@ -2419,12 +2434,15 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         document.getElementById('pipelineView').style.display = tab === 'pipeline' ? '' : 'none';
         document.getElementById('invoicesView').style.display = tab === 'invoices' ? '' : 'none';
         document.getElementById('usersView').style.display = tab === 'users' ? '' : 'none';
+        document.getElementById('visitsView').style.display = tab === 'visits' ? '' : 'none';
         document.getElementById('tabBtnPipeline').classList.toggle('active', tab === 'pipeline');
         document.getElementById('tabBtnInvoices').classList.toggle('active', tab === 'invoices');
         document.getElementById('tabBtnUsers').classList.toggle('active', tab === 'users');
+        document.getElementById('tabBtnVisits').classList.toggle('active', tab === 'visits');
 
         if (tab === 'invoices' && allInvoicesList.length === 0) fetchInvoicesList();
         if (tab === 'users') fetchUserManagementData();
+        if (tab === 'visits') fetchPortalVisitsLog();
     }
 
     // ── Users & Workshops management (Super Admin only, v11.8) ─────────────
@@ -2488,6 +2506,77 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
                     <a class="history-link" style="color:#dc2626;" onclick="deleteWorkshopRow(${jsAttr_(w.name)})">🗑️ Delete</a>
                 </td>
             </tr>`).join('');
+    }
+
+    // ── QR Scan / Visit Log (Super Admin only, v11.11) ──────────────────────
+    let allPortalVisitsList = [];
+
+    function fetchPortalVisitsLog() {
+        document.getElementById('visitsLogContainer').innerHTML = '<div style="padding:20px; text-align:center; color:#94a3b8;">Loading…</div>';
+        fetch(`${WEB_APP_URL}?action=getPortalVisitsLog&requester=${encodeURIComponent(currentUsername)}`)
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success) { showToast(data.error || 'Could not load scan log.', 'error'); return; }
+            allPortalVisitsList = data.visits || [];
+            renderVisitsLog();
+        })
+        .catch(() => showToast('Network error loading scan log.', 'error'));
+    }
+
+    function renderVisitsLog() {
+        const container = document.getElementById('visitsLogContainer');
+        const q = (document.getElementById('fVisitsSearch').value || '').trim().toLowerCase();
+
+        let visits = allPortalVisitsList;
+        if (q) {
+            visits = visits.filter(v =>
+                String(v.jobNum || '').toLowerCase().includes(q) ||
+                String(v.customerName || '').toLowerCase().includes(q) ||
+                String(v.mobile || '').toLowerCase().includes(q)
+            );
+        }
+
+        if (visits.length === 0) {
+            container.innerHTML = '<div style="padding:20px; text-align:center; color:#94a3b8;">No scans recorded yet.</div>';
+            return;
+        }
+
+        // Group by day (visits already arrive newest-first from the backend)
+        const groups = [];
+        const groupsByDate = {};
+        visits.forEach(v => {
+            if (!groupsByDate[v.dateLabel]) {
+                groupsByDate[v.dateLabel] = { date: v.dateLabel, items: [] };
+                groups.push(groupsByDate[v.dateLabel]);
+            }
+            groupsByDate[v.dateLabel].items.push(v);
+        });
+
+        const todayLabel = new Date().toISOString().slice(0, 10);
+        const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+
+        container.innerHTML = groups.map(g => {
+            const dayHeading = g.date === todayLabel ? `Today — ${g.date}` : (g.date === yesterday ? `Yesterday — ${g.date}` : g.date);
+            const rows = g.items.map(v => `
+                <tr>
+                    <td>${esc_(v.timeLabel)}</td>
+                    <td>#${esc_(v.jobNum)}</td>
+                    <td>${esc_(v.customerName) || '—'}</td>
+                    <td>${esc_(v.mobile) || '—'}</td>
+                </tr>`).join('');
+            return `
+                <div style="margin-bottom:16px;">
+                    <div style="font-weight:800; font-size:12px; color:#1e3a8a; background:#eff6ff; padding:6px 10px; border-radius:6px; margin-bottom:6px;">
+                        ${esc_(dayHeading)} <span style="font-weight:400; color:#64748b;">— ${g.items.length} scan${g.items.length === 1 ? '' : 's'}</span>
+                    </div>
+                    <div class="table-responsive-wrapper">
+                        <table class="pipeline-table">
+                            <thead><tr><th>Time</th><th>Job #</th><th>Customer</th><th>Mobile</th></tr></thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                </div>`;
+        }).join('');
     }
 
     function editUserRow(username, techName, role) {

@@ -123,9 +123,11 @@
         .informed-count-badge { background: #0891b2; color: white; border-radius: 10px; padding: 0 6px; font-size: 10px; font-weight: 800; min-width: 14px; text-align: center; }
 
         /* NEW v11.12: "Send SMS" button — actual text-message customer notification */
-        .btn-sms { background: #f0fdf4; color: #15803d; border: 1px solid #86efac; padding: 5px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; margin-left: 6px; }
+        .btn-sms { background: #f0fdf4; color: #15803d; border: 1px solid #86efac; padding: 5px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; margin-left: 6px; transition: background-color .15s, border-color .15s, color .15s; }
         .btn-sms:hover { background: #dcfce7; }
         .btn-sms:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-sms.btn-sms-success { background: #059669; color: #fff; border-color: #059669; opacity: 1; }
+        .btn-sms.btn-sms-fail { background: #dc2626; color: #fff; border-color: #dc2626; opacity: 1; }
 
         /* NEW v11.3: Cross-portal notification bell + dropdown panel */
         .notif-bell-wrap { position: relative; }
@@ -391,6 +393,8 @@
         body.dark-mode .btn-sms { background: #052e16; color: #86efac; border-color: #15803d; }
         body.dark-mode .btn-sms:hover { background: #0a3f21; border-color: #22c55e; }
         body.dark-mode .btn-sms:disabled { opacity: 0.5; }
+        body.dark-mode .btn-sms.btn-sms-success { background: #059669; color: #fff; border-color: #059669; }
+        body.dark-mode .btn-sms.btn-sms-fail { background: #dc2626; color: #fff; border-color: #dc2626; }
         /* NEW: date-filter-bar's date inputs were pinned to a light background by a
            higher-specificity light-mode rule, so they stayed white in dark mode —
            give them an explicit dark-mode override to match the rest of the bar. */
@@ -950,7 +954,7 @@
 </div>
 
 <script>
-    const WEB_APP_URL = "https://zrfdavacsndjspyhhfej.supabase.co/functions/v1/shop-api"; 
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx0yVpleXtHiCV3wHsSqPrPk5RWszrkJieLkanl2ub3tjRSpp6dvF8Nh75LKIxwIDXw/exec"; 
 
     // ── Toast notifications ─────────────────────────────────────────────────
     // Lightweight, non-blocking replacement for alert(). type: 'success' | 'error' | 'info'
@@ -1874,11 +1878,18 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
     // log/counter and never sends anything by itself. Completed jobs also
     // trigger this automatically on the backend the moment status is set
     // to Completed — this button is for sending it on demand at any status.
+    const SMS_BTN_RESET_DELAY_MS = 3000; // how long the ✅/❌ state stays before reverting to normal
+    const smsBtnResetTimers = {}; // jobNum -> timeout id, so rapid re-clicks don't race each other
+
     function sendStatusSmsSubmit(jobNum, btnEl) {
-        if (btnEl) btnEl.disabled = true;
-        const originalLabel = btnEl ? btnEl.innerHTML : '';
-        if (btnEl) btnEl.innerHTML = '⏳ Sending...';
+        if (!btnEl) return;
+        if (smsBtnResetTimers[jobNum]) { clearTimeout(smsBtnResetTimers[jobNum]); delete smsBtnResetTimers[jobNum]; }
+
+        btnEl.disabled = true;
+        btnEl.classList.remove('btn-sms-success', 'btn-sms-fail');
+        btnEl.innerHTML = '⏳ Sending...';
         const techLabel = document.getElementById('loggedInTechName') ? document.getElementById('loggedInTechName').innerText : '';
+
         fetch(WEB_APP_URL, {
             method: 'POST',
             body: JSON.stringify({ action: "sendManualStatusSms", jobNum: jobNum, requester: techLabel })
@@ -1886,16 +1897,30 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         .then(res => res.json())
         .then(data => {
             if (data.success) {
+                btnEl.classList.add('btn-sms-success');
+                btnEl.innerHTML = '✅ Sent';
                 showToast('SMS sent to customer.', "success");
             } else {
+                btnEl.classList.add('btn-sms-fail');
+                btnEl.innerHTML = '❌ Failed';
                 showToast('SMS failed: ' + (data.error || 'Unknown error.'), "error");
             }
         })
         .catch(() => {
+            btnEl.classList.add('btn-sms-fail');
+            btnEl.innerHTML = '❌ Failed';
             showToast('Network error while sending SMS.', "error");
         })
         .finally(() => {
-            if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = originalLabel; }
+            btnEl.disabled = false;
+            // Revert to the normal "📱 Send SMS" look after a short pause so
+            // the tick/cross is clearly seen, but the button doesn't stay
+            // stuck in a success/fail state forever.
+            smsBtnResetTimers[jobNum] = setTimeout(() => {
+                btnEl.classList.remove('btn-sms-success', 'btn-sms-fail');
+                btnEl.innerHTML = '📱 Send SMS';
+                delete smsBtnResetTimers[jobNum];
+            }, SMS_BTN_RESET_DELAY_MS);
         });
     }
 

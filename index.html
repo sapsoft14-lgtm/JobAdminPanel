@@ -404,6 +404,41 @@
            dynamically-rendered pipeline rows/history log, so they stay readable on dark backgrounds */
         body.dark-mode [style*="color:#1e3a8a"] { color: #60a5fa !important; }
         body.dark-mode [style*="color:#64748b"] { color: #94a3b8 !important; }
+		/* ── SMS confirmation badge shown inside the job-registration success banner ── */
+.sms-status-badge {
+    margin-top: 10px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 7px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 800;
+    width: fit-content;
+    margin-left: auto;
+    margin-right: auto;
+}
+.sms-status-badge.sms-badge-sending { background: #eff6ff; color: #1e3a8a; }
+.sms-status-badge.sms-badge-success { background: #d1fae5; color: #065f46; }
+.sms-status-badge.sms-badge-fail { background: #fee2e2; color: #b91c1c; }
+.sms-status-badge.sms-badge-pop { animation: smsBadgePop .45s cubic-bezier(.34,1.56,.64,1); }
+
+@keyframes smsBadgePop {
+    0%   { transform: scale(0.4); opacity: 0; }
+    60%  { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(1); }
+}
+
+.sms-badge-spinner {
+    display: inline-block; width: 11px; height: 11px;
+    border: 2px solid rgba(30,58,138,0.3); border-top-color: #1e3a8a;
+    border-radius: 50%; animation: btnSpin 0.7s linear infinite;
+}
+
+body.dark-mode .sms-status-badge.sms-badge-sending { background: #0c2440; color: #93c5fd; }
+body.dark-mode .sms-status-badge.sms-badge-success { background: #052e1f; color: #6ee7b7; }
+body.dark-mode .sms-status-badge.sms-badge-fail { background: #450a0a; color: #fca5a5; }
     </style>
 </head>
 <body>
@@ -517,10 +552,11 @@
                     <div class="badge-number" id="nextJobNumPreview">—</div>
                 </div>
             </div>
-            <div id="registrationSuccessMessage" class="success-banner">
-                🎉 Job registered successfully! &nbsp;
-                <button type="button" id="printJobCardBtn" onclick="printJobCard()" style="background:#1e3a8a; color:white; border:none; padding:6px 12px; border-radius:5px; font-weight:bold; cursor:pointer; font-size:12px; margin-left:6px;">🖨️ Print Job Card</button>
-            </div>
+<div id="registrationSuccessMessage" class="success-banner">
+    🎉 Job registered successfully! &nbsp;
+    <button type="button" id="printJobCardBtn" onclick="printJobCard()" style="background:#1e3a8a; color:white; border:none; padding:6px 12px; border-radius:5px; font-weight:bold; cursor:pointer; font-size:12px; margin-left:6px;">🖨️ Print Job Card</button>
+    <div id="smsStatusBadge" class="sms-status-badge"></div>
+</div>
             
             <form id="registrationForm">
                 <div class="form-group">
@@ -2200,35 +2236,56 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
             printWinHandle.document.write('<html><body style="font-family:sans-serif;padding:40px;color:#475569;">Preparing job card…</body></html>');
         }
 
-        fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action: "registerJob" }, formSnapshot)) })
-        .then(res => res.json()).then(data => { 
-            if(data.success) { 
-                // Stash the data needed to print a job card for this new ticket
-                lastRegisteredJob = Object.assign({ jobNum: data.jobNum, createdAt: new Date() }, formSnapshot);
+fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action: "registerJob" }, formSnapshot)) })
+.then(res => res.json()).then(data => { 
+    if(data.success) { 
+        // Stash the data needed to print a job card for this new ticket
+        lastRegisteredJob = Object.assign({ jobNum: data.jobNum, createdAt: new Date() }, formSnapshot);
 
-                document.getElementById('registrationForm').reset(); 
-                document.getElementById('lookupAlert').style.display = "none"; 
-                document.getElementById('estimateRangeHint').innerText = "";
-                
-                const successBanner = document.getElementById('registrationSuccessMessage');
-                successBanner.style.display = "block";
-                
-                setTimeout(() => {
-                    successBanner.style.display = "none";
-                }, 8000);
+        document.getElementById('registrationForm').reset(); 
+        document.getElementById('lookupAlert').style.display = "none"; 
+        document.getElementById('estimateRangeHint').innerText = "";
+        
+        const successBanner = document.getElementById('registrationSuccessMessage');
+        successBanner.style.display = "block";
 
-                fetchLivePipelineData();
-                // Optimistically bump the preview immediately after registration
-                const badge = document.getElementById('nextJobNumPreview');
-                if (badge && badge.innerText !== '—') { badge.innerText = Number(badge.innerText) + 1; }
-
-                // Fill in the pop-up window we already opened, instead of opening a new one now.
-                printJobCard(printWinHandle);
+        // ── SMS confirmation badge (animated) ────────────────────────────
+        const smsBadge = document.getElementById('smsStatusBadge');
+        smsBadge.classList.remove('sms-badge-sending', 'sms-badge-success', 'sms-badge-fail', 'sms-badge-pop');
+        if (data.sms) {
+            smsBadge.style.display = 'inline-flex';
+            void smsBadge.offsetWidth; // restart pop animation even on repeat registrations
+            if (data.sms.success) {
+                smsBadge.classList.add('sms-badge-success', 'sms-badge-pop');
+                smsBadge.innerHTML = `✅ SMS sent to customer — Job #${data.jobNum}`;
+                showToast('SMS confirmation sent to customer.', 'success');
             } else {
-                if (printWinHandle) printWinHandle.close();
-                showToast('Could not register job: ' + (data.error || 'Unknown error.'), "error");
+                smsBadge.classList.add('sms-badge-fail', 'sms-badge-pop');
+                smsBadge.innerHTML = '⚠️ Job registered, but SMS could not be sent';
+                showToast('Job registered, but the confirmation SMS failed to send.', 'error');
             }
-        })
+        } else {
+            smsBadge.style.display = 'none';
+        }
+        // ──────────────────────────────────────────────────────────────────
+        
+        setTimeout(() => {
+            successBanner.style.display = "none";
+            smsBadge.style.display = "none";
+        }, 8000);
+
+        fetchLivePipelineData();
+        // Optimistically bump the preview immediately after registration
+        const badge = document.getElementById('nextJobNumPreview');
+        if (badge && badge.innerText !== '—') { badge.innerText = Number(badge.innerText) + 1; }
+
+        // Fill in the pop-up window we already opened, instead of opening a new one now.
+        printJobCard(printWinHandle);
+    } else {
+        if (printWinHandle) printWinHandle.close();
+        showToast('Could not register job: ' + (data.error || 'Unknown error.'), "error");
+    }
+})
         .catch(() => {
             if (printWinHandle) printWinHandle.close();
             showToast('Network error while registering job. Please check your connection and try again.', "error");

@@ -2148,7 +2148,7 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
 
     // NEW: color per status, used for the small chip in each feed entry.
     function getAdminStatusChipColor(status) {
-        const map = { 'Pending': '#f59e0b', 'Pending for Quotation': '#d97706', 'Ongoing': '#2563eb', 'Warranty Pending': '#6366f1', 'Completed': '#059669', 'Returned': '#b91c1c', "Can't Repair": '#ef4444', 'Warranty Claimed': '#8b5cf6', 'Customer Hold': '#0891b2' };
+        const map = { 'Pending': '#f59e0b', 'Pending for Quotation': '#d97706', 'Ongoing': '#2563eb', 'Warranty Pending': '#6366f1', 'Completed': '#059669', 'Returned': '#b91c1c', "Can't Repair": '#ef4444', 'Warranty Claimed': '#8b5cf6', 'Customer Hold': '#0891b2', 'Workshop Transferred': '#0d9488', 'Transferred': '#0d9488' };
         return map[status] || '#64748b';
     }
 

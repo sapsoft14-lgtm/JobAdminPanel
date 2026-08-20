@@ -137,11 +137,17 @@
         .notif-panel { position: absolute; top: calc(100% + 8px); right: 0; width: 340px; max-height: 420px; overflow-y: auto; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); z-index: 5000; }
         .notif-panel-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid #f1f5f9; font-weight: bold; font-size: 12px; color: #1e3a8a; position: sticky; top: 0; background: white; }
         .notif-panel-header button { background: #1e3a8a; color: white; border: none; padding: 4px 10px; border-radius: 5px; font-size: 11px; cursor: pointer; font-weight: bold; }
-        .notif-item { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; font-size: 12px; }
+        .notif-item { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; font-size: 12px; display: flex; gap: 9px; align-items: flex-start; }
         .notif-item.unread { background: #eff6ff; }
         .notif-item .notif-meta { display: flex; justify-content: space-between; color: #94a3b8; font-size: 10px; margin-bottom: 3px; }
         .notif-item .notif-note { color: #64748b; margin-top: 3px; }
         .notif-empty { text-align: center; color: #94a3b8; font-size: 12px; padding: 22px 10px; }
+        /* NEW: profile-photo avatar per notification, same lookup
+           (adminProfilePicsCache) already used for the activity feed —
+           falls back to initials when no photo is on file. */
+        .notif-avatar { width: 30px; height: 30px; border-radius: 50%; overflow: hidden; flex-shrink: 0; background: #1e3a8a; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px; }
+        .notif-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .notif-body { flex: 1; min-width: 0; }
 
         /* Toggle Switch styling for Handover Options */
         .switch-container { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: bold; color: #475569; margin-top: 6px; }
@@ -370,6 +376,7 @@
         body.dark-mode .notif-panel-header { background: #1e293b; border-bottom-color: #334155; color: #93c5fd; }
         body.dark-mode .notif-item { border-bottom-color: #334155; }
         body.dark-mode .notif-item.unread { background: #0c2440; }
+        body.dark-mode .notif-avatar { background: #2563eb; }
         body.dark-mode .notif-item .notif-meta { color: #64748b; }
         body.dark-mode .notif-item .notif-note { color: #94a3b8; }
         body.dark-mode .login-box { background: #1e293b; color: #e2e8f0; }
@@ -2084,9 +2091,12 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
 
         list.innerHTML = notifFeedCache.map(n => `
             <div class="notif-item ${n.id > lastCleared ? 'unread' : ''}">
-                <div class="notif-meta"><span>Job #${n.jobNum}</span><span>${formatNotifTime(n.timestamp)}</span></div>
-                <div><strong>${n.status}</strong> — ${n.operator || ''}</div>
-                <div class="notif-note">${n.note || ''}</div>
+                ${getAdminAvatarHtml(n.operator)}
+                <div class="notif-body">
+                    <div class="notif-meta"><span>Job #${n.jobNum}</span><span>${formatNotifTime(n.timestamp)}</span></div>
+                    <div><strong>${n.status}</strong> — ${n.operator || ''}</div>
+                    <div class="notif-note">${n.note || ''}</div>
+                </div>
             </div>`).join('');
     }
 

@@ -620,6 +620,13 @@ body.dark-mode .sms-status-badge.sms-badge-fail { background: #450a0a; color: #f
                     <div class="form-group"><label>Workshop</label><select id="workshop"><option value="">Select Workshop Location</option><option value="SAP -  Shop 14">SAP -  Shop 14</option><option value="kalagedihen prj">kalagedihen prj</option><option value="Mr. Gayan - Kadawatha">Mr. Gayan - Kadawatha</option><option value="SAP - Shop 68">SAP - Shop 68</option><option value="SAP CCTV Shop Gampaha">SAP CCTV Shop Gampaha</option><option value="Smart Technology">Smart Technology</option><option value="Ishika - Udigampola">Ishika - Udigampola</option></select></div>
                     <div class="form-group"><label>Tech</label><select id="tech"><option value="">Select Person</option><option value="WM Nayanajijth">WM Nayanajijth</option><option value="Supun Samarasinghe">Supun Samarasinghe</option><option value="Isuru Lakshitha">Isuru Lakshitha</option><option value="Ayesh Harshana">Ayesh Harshana</option><option value="Dilka Dulakshana">Dilka Dulakshana</option><option value="Front Officer">Front Officer</option><option value="Chamith Sandeepa">Chamith Sandeepa</option><option value="Pradeep Kaushalya">Pradeep Kaushalya</option></select></div>
                 </div>
+                <div class="form-group" style="display:flex; align-items:center; gap:6px; background:#f0f9ff; border:1px solid #bae6fd; border-radius:5px; padding:5px 8px; margin-top:2px;">
+                    <input type="checkbox" id="includeDiagnosticPage" style="width:13px; height:13px; margin:0; flex-shrink:0; cursor:pointer; accent-color:#1e3a8a;">
+                    <label for="includeDiagnosticPage" style="margin:0; font-weight:600; font-size:10.5px; color:#0c4a6e; cursor:pointer; line-height:1.25;">
+                        🔧 Print 3rd page — Diagnostic Order &amp; Parts Checking
+                        <span style="display:block; font-weight:400; color:#0369a1; font-size:9px; margin-top:1px;">Optional. Auto-builds a parts checklist matched to the item category (A5).</span>
+                    </label>
+                </div>
                 <button type="submit" id="registerTicketBtn" class="btn-blue">Register Ticket</button>
             </form>
         </div>
@@ -2227,6 +2234,10 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
             tech: document.getElementById('tech').value,
             estimatedPrice: getEstimatePriceRangeString()
         };
+        // Print-time preference only — never sent to the server, used purely
+        // to decide whether the job card print-out gets the optional 3rd
+        // "Diagnostic Order / Parts Checking" page.
+        const includeDiagnosticPageChecked = document.getElementById('includeDiagnosticPage').checked;
 
         // ── Show "generating" animation on the Register Ticket button ──────
         const regBtn = document.getElementById('registerTicketBtn');
@@ -2252,7 +2263,7 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action
 .then(res => res.json()).then(data => { 
     if(data.success) { 
         // Stash the data needed to print a job card for this new ticket
-        lastRegisteredJob = Object.assign({ jobNum: data.jobNum, createdAt: new Date() }, formSnapshot);
+        lastRegisteredJob = Object.assign({ jobNum: data.jobNum, createdAt: new Date(), includeDiagnosticPage: includeDiagnosticPageChecked }, formSnapshot);
 
         document.getElementById('registrationForm').reset(); 
         document.getElementById('lookupAlert').style.display = "none"; 
@@ -2325,8 +2336,109 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action
             serial: raw.serial,
             fault: raw.fault,
             estimatedPrice: raw.estimatedPrice || raw.estimatePrice || '',
-            createdStr: createdStr
+            createdStr: createdStr,
+            includeDiagnosticPage: !!raw.includeDiagnosticPage
         };
+    }
+
+    // ── Diagnostic Order / Parts Checking page — category → parts mapping ───
+    // Keyed off the exact values in the "Category" dropdown (#itemType).
+    // Anything not listed here (or a custom "Other" job) falls back to the
+    // 'Other' generic checklist below.
+    const DIAGNOSTIC_PARTS_BY_CATEGORY = {
+        'Computer': ['Storage Device (HDD / SSD)', 'RAM Module(s)', 'Motherboard', 'VGA / Graphics Card', 'Power Supply Unit (PSU)', 'CPU Cooler / Fan', 'CMOS Battery', 'Cabinet / Chassis Condition'],
+        'Laptop': ['Storage Device (HDD / SSD)', 'RAM Module(s)', 'Motherboard', 'Battery', 'Charger / AC Adapter', 'Keyboard', 'Touchpad', 'Display / Screen', 'Hinges', 'Speakers', 'Webcam'],
+        'Printer': ['Print Head / Cartridge', 'Ink / Toner Level', 'Paper Feed Roller', 'Power Supply Unit', 'USB / Network Port', 'Control Panel / Display'],
+        'CCTV Camera': ['Camera Unit(s)', 'DVR / NVR Unit', 'Power Adapter', 'Cabling / Connectors', 'Storage Device (HDD)', 'Network Connection'],
+        'Other': ['Main Unit / Body', 'Power Supply / Cable', 'Storage Device (if any)', 'Physical Casing / Housing']
+    };
+    function getDiagnosticPartsForCategory(itemType) {
+        return DIAGNOSTIC_PARTS_BY_CATEGORY[itemType] || DIAGNOSTIC_PARTS_BY_CATEGORY['Other'];
+    }
+
+    // Generic pre-repair checks that apply regardless of item category —
+    // printed as a second, un-categorised checklist under the parts table.
+    const DIAGNOSTIC_EXTRA_RULES = [
+        'Item received with visible physical damage / scratches',
+        'All standard accessories received (charger, cables, bag, etc.)',
+        'Device powered ON and tested in front of customer',
+        'Customer informed of possible data loss during repair',
+        'Data backup requested / taken (if applicable)',
+        'Device password / PIN provided by customer',
+        'Item covered under manufacturer or shop warranty',
+        'Existing software / OS activation confirmed before repair'
+    ];
+
+    // Renders the optional 3rd A5 sheet: a parts-checking table matched to
+    // the job's item category, plus the fixed extra-rules checklist below
+    // it. Uses the exact same .card-sheet / .print-page shell as the two
+    // job-card copies so it shares identical A5 sizing, margins and fonts.
+    function buildDiagnosticPageMarkup(job, esc) {
+        const parts = getDiagnosticPartsForCategory(job.itemType);
+        const partsRows = parts.map(p => `
+                <tr>
+                    <td class="diag-part-name">${esc(p)}</td>
+                    <td class="diag-check-cell"><span class="diag-box"></span></td>
+                    <td class="diag-check-cell"><span class="diag-box"></span></td>
+                    <td class="diag-check-cell"><span class="diag-box"></span></td>
+                    <td class="diag-remarks-cell"></td>
+                </tr>`).join('');
+
+        const rulesRows = DIAGNOSTIC_EXTRA_RULES.map(r => `
+                <div class="diag-rule-row">
+                    <span class="diag-rule-box"></span>
+                    <span class="diag-rule-text">${esc(r)}</span>
+                </div>`).join('');
+
+        return `
+    <div class="card-sheet print-page diag-sheet">
+        <div class="copy-tag">Diagnostic Order</div>
+        <div class="card-header">
+            <div class="card-header-brand">
+                ${LOGO_URL ? `<img class="card-logo" src="${esc(LOGO_URL)}" alt="${esc(COMPANY_INFO.name)} logo">` : ''}
+                <div>
+                    <p class="company-name">${esc(COMPANY_INFO.name)}</p>
+                    <div class="company-meta">${esc(COMPANY_INFO.address)}<br>${esc(COMPANY_INFO.phone)} &nbsp;|&nbsp; ${esc(COMPANY_INFO.email)}</div>
+                </div>
+            </div>
+            <div class="job-num-box">
+                <div class="label">Job Card No.</div>
+                <div class="num">#${esc(job.jobNum)}</div>
+            </div>
+        </div>
+
+        <div class="card-title">Job Diagnostic Order &amp; Parts Checking Format</div>
+
+        <div class="field-row"><div class="f-label">Item Category</div><div class="f-value">${esc(job.itemType)}</div></div>
+        <div class="field-row"><div class="f-label">Model / Brand</div><div class="f-value">${esc(job.model) || '—'}</div></div>
+
+        <table class="diag-table">
+            <thead>
+                <tr>
+                    <th class="diag-part-name">Part / Component</th>
+                    <th class="diag-check-cell">OK</th>
+                    <th class="diag-check-cell">Faulty</th>
+                    <th class="diag-check-cell">N/A</th>
+                    <th class="diag-remarks-cell">Remarks</th>
+                </tr>
+            </thead>
+            <tbody>${partsRows}</tbody>
+        </table>
+
+        <div class="diag-rules-title">Additional Checks</div>
+        <div class="diag-rules-box">${rulesRows}</div>
+
+        <div class="signature-row">
+            <div class="sig-box">
+                <div class="sig-space"></div>
+                <div class="sig-label">Technician Signature</div>
+            </div>
+            <div class="sig-box">
+                <div class="sig-space"></div>
+                <div class="sig-label">Checked By / Date</div>
+            </div>
+        </div>
+    </div>`;
     }
 
     // Builds the customer-portal link for a given job: pre-fills both the
@@ -2422,6 +2534,9 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action
 
         const customerCopyMarkup = buildCardSheetMarkup(job, 'Customer Copy', esc, termsListHtml);
         const officeCopyMarkup = buildCardSheetMarkup(job, 'Office Copy', esc, termsListHtml);
+        // Optional 3rd page — only generated when the "Include Diagnostic
+        // Page" checkbox was ticked at registration/reprint time.
+        const diagnosticPageMarkup = job.includeDiagnosticPage ? buildDiagnosticPageMarkup(job, esc) : '';
 
         return `<!DOCTYPE html>
 <html>
@@ -2475,6 +2590,21 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action
     .card-footer ol { margin: 0; padding-left: 14px; }
     .card-footer ol li { margin-bottom: 1px; }
 
+    /* ── Diagnostic Order / Parts Checking page (optional 3rd A5 sheet) ── */
+    .diag-sheet .copy-tag { background: #7c2d12; }
+    .diag-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 10.5px; }
+    .diag-table th { text-align: left; text-transform: uppercase; font-size: 8.5px; color: #64748b; font-weight: 700; border-bottom: 1.5px solid #1e293b; padding: 4px 4px 5px; }
+    .diag-table td { border-bottom: 1px dotted #cbd5e1; padding: 5px 4px; vertical-align: middle; }
+    .diag-table .diag-part-name { width: 46%; font-weight: 600; color: #0f172a; }
+    .diag-table th.diag-check-cell, .diag-table td.diag-check-cell { width: 10%; text-align: center; }
+    .diag-table .diag-remarks-cell { width: 24%; }
+    .diag-box { display: inline-block; width: 11px; height: 11px; border: 1.3px solid #64748b; border-radius: 2px; }
+    .diag-rules-title { margin-top: 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: #475569; border-bottom: 1px solid #cbd5e1; padding-bottom: 3px; }
+    .diag-rules-box { margin-top: 6px; display: flex; flex-direction: column; gap: 5px; }
+    .diag-rule-row { display: flex; align-items: flex-start; gap: 7px; font-size: 10.5px; color: #1e293b; }
+    .diag-rule-box { flex-shrink: 0; margin-top: 1px; display: inline-block; width: 10px; height: 10px; border: 1.3px solid #64748b; border-radius: 2px; }
+    .diag-rule-text { line-height: 1.3; }
+
     @media print {
         body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     }
@@ -2483,6 +2613,7 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action
 <body>
     ${customerCopyMarkup}
     ${officeCopyMarkup}
+    ${diagnosticPageMarkup}
     <script>window.onload = function(){ window.print(); };<\/script>
 </body>
 </html>`;
@@ -2508,7 +2639,11 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action
     function reprintJobCard(jobNum) {
         const job = jobsCacheArray.find(j => j.jobNum == jobNum);
         if (!job) { showToast('Could not find that job in the current data. Try syncing first.', 'error'); return; }
-        openCardPrintWindow(normalizeJobForCard(job));
+        // Cached pipeline rows have no memory of the original registration-time
+        // checkbox, so ask again here — cheap confirm() beats silently
+        // dropping the 3rd page (or always forcing it) on every reprint.
+        const includeDiagnostic = window.confirm('Include the Diagnostic Order / Parts Checking page (3rd A5 page) in this reprint?');
+        openCardPrintWindow(normalizeJobForCard(Object.assign({}, job, { includeDiagnosticPage: includeDiagnostic })));
     }
     // ─────────────────────────────────────────────────────────────────────────
 

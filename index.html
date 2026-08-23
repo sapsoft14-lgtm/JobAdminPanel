@@ -91,10 +91,39 @@
         .pipeline-table td { padding: 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
 
         /* Selectable Job Cards -> Administration Modify Overrides auto-fill */
-        .job-row-selectable { cursor: pointer; transition: background-color .15s; }
+        .job-row-selectable { cursor: pointer; transition: background-color .2s ease; }
         .job-row-selectable:hover { background-color: #f8fafc; }
         .job-row-selected { background-color: #eff6ff; box-shadow: inset 4px 0 0 #1e3a8a; }
         .job-row-selected:hover { background-color: #eff6ff; }
+
+        /* Hover animation: the inner card lifts, gains a soft shadow and a
+           left accent bar slides in, giving clear tactile feedback that the
+           job card is clickable. Kept on the inner table (not the <tr>) so
+           the transform doesn't disturb table row layout/height. */
+        .job-card-inner {
+            transition: transform .2s ease, box-shadow .2s ease;
+            transform: translateY(0) scale(1);
+            box-shadow: 0 0 0 rgba(15, 23, 42, 0);
+            position: relative;
+        }
+        .job-card-inner::before {
+            content: "";
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 3px;
+            background: #1e3a8a;
+            transform: scaleY(0);
+            transform-origin: center;
+            transition: transform .2s ease;
+        }
+        .job-row-selectable:hover .job-card-inner {
+            transform: translateY(-2px) scale(1.003);
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.10);
+        }
+        .job-row-selectable:hover .job-card-inner::before {
+            transform: scaleY(1);
+        }
+        .job-row-selected .job-card-inner::before { transform: scaleY(1); }
         .job-selected-badge { display: none; background: #1e3a8a; color: white; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 20px; margin-bottom: 10px; }
         #overrideForm.has-selection .job-selected-badge { display: inline-flex; align-items: center; gap: 6px; }
         
@@ -365,6 +394,8 @@
         body.dark-mode .job-row-selectable:hover { background-color: #1e293b; }
         body.dark-mode .job-row-selected { background-color: #1e3a5f; box-shadow: inset 4px 0 0 #60a5fa; }
         body.dark-mode .job-row-selected:hover { background-color: #1e3a5f; }
+        body.dark-mode .job-card-inner::before { background: #60a5fa; }
+        body.dark-mode .job-row-selectable:hover .job-card-inner { box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45); }
         body.dark-mode .suggest-dropdown { background: #1e293b; border-color: #334155; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
         body.dark-mode .suggest-item { color: #e2e8f0; border-bottom-color: #334155; }
         body.dark-mode .suggest-item:hover, body.dark-mode .suggest-item.active { background: #334155; color: #93c5fd; }
@@ -1755,7 +1786,7 @@ function createJitteredPoller(fn, baseMs, jitterMs) {
 
             tr.innerHTML = `
                 <td colspan="4" style="padding:0; border-bottom:1px solid #e2e8f0;">
-                    <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                    <table class="job-card-inner" style="width:100%; border-collapse:collapse; font-size:13px;">
                         <tr>
                             <td style="width:25%; padding:12px;"><strong>#${job.jobNum}</strong><br><span style="font-size:11px; color:#64748b;">${job.createdTime}</span></td>
                             <td style="width:30%; padding:12px;">

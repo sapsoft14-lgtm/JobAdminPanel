@@ -575,6 +575,7 @@ body.dark-mode .sms-status-badge.sms-badge-fail { background: #450a0a; color: #f
     <button type="button" class="admin-tab-btn" id="tabBtnInvoices" onclick="switchAdminTab('invoices')">🧾 Invoices</button>
     <button type="button" class="admin-tab-btn" id="tabBtnUsers" onclick="switchAdminTab('users')" style="display:none;">👥 Users &amp; Workshops</button>
     <button type="button" class="admin-tab-btn" id="tabBtnVisits" onclick="switchAdminTab('visits')">📱 QR Scan Log</button>
+    <button type="button" class="admin-tab-btn" id="tabBtnReports" onclick="switchAdminTab('reports')">📊 Reports</button>
     <a href="https://sapsoft14-lgtm.github.io/SAPPURCHASING/" target="_blank" rel="noopener" class="admin-tab-btn" style="text-decoration:none; display:inline-flex; align-items:center;">🛒 Purchasing Ledger</a>
     <a href="https://sapsoft14-lgtm.github.io/CreditLedger/" target="_blank" rel="noopener" class="admin-tab-btn" style="text-decoration:none; display:inline-flex; align-items:center;">💳 Credit Info</a>
 </div>
@@ -862,10 +863,19 @@ body.dark-mode .sms-status-badge.sms-badge-fail { background: #450a0a; color: #f
                 <option value="Partial">Partial</option>
                 <option value="Unpaid">Unpaid</option>
             </select>
-            <input type="date" id="ifDateFrom" onchange="renderInvoicesTable()" title="From date">
-            <input type="date" id="ifDateTo" onchange="renderInvoicesTable()" title="To date">
+            <select id="ifQuickRange" onchange="onInvoicesQuickRangeChange()" title="Date range">
+                <option value="today">📅 Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="7days">Last 7 Days</option>
+                <option value="month">This Month</option>
+                <option value="all">All Time</option>
+                <option value="custom">Custom Range…</option>
+            </select>
+            <input type="date" id="ifDateFrom" onchange="renderInvoicesTable()" title="From date" style="display:none;">
+            <input type="date" id="ifDateTo" onchange="renderInvoicesTable()" title="To date" style="display:none;">
             <button onclick="fetchInvoicesList()" style="background:#64748b; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; width:100%;">🔄 Sync</button>
         </div>
+        <div id="ifResultsSummary" style="font-size:11px; color:#94a3b8; padding:8px 2px 0; text-align:right;"></div>
     </div>
     <div class="table-responsive-wrapper">
         <table class="pipeline-table">
@@ -938,10 +948,92 @@ body.dark-mode .sms-status-badge.sms-badge-fail { background: #450a0a; color: #f
             <span>📱 Job Card QR Scan Log <span style="font-size:11px; font-weight:400; color:#94a3b8; text-transform:none;">— every time a customer's status page loads from the QR</span></span>
             <button type="button" onclick="fetchPortalVisitsLog()" style="border:none; background:#eef2ff; color:#4338ca; font-size:11px; font-weight:700; padding:5px 10px; border-radius:20px; cursor:pointer;">🔄 Refresh</button>
         </h2>
-        <input type="text" id="fVisitsSearch" placeholder="🔎 Filter by Job #, Customer or Mobile..." oninput="renderVisitsLog()" autocomplete="off" style="width:100%; box-sizing:border-box; margin-bottom:14px;">
+        <div class="controls-bar" style="border-radius:8px; margin-bottom:14px;">
+            <input type="text" id="fVisitsSearch" placeholder="🔎 Filter by Job #, Customer or Mobile..." oninput="renderVisitsLog()" autocomplete="off">
+            <select id="vfQuickRange" onchange="onVisitsQuickRangeChange()" title="Date range">
+                <option value="today">📅 Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="7days">Last 7 Days</option>
+                <option value="month">This Month</option>
+                <option value="all">All Time</option>
+                <option value="custom">Custom Range…</option>
+            </select>
+            <input type="date" id="vfDateFrom" onchange="renderVisitsLog()" title="From date" style="display:none;">
+            <input type="date" id="vfDateTo" onchange="renderVisitsLog()" title="To date" style="display:none;">
+        </div>
+        <div id="vfResultsSummary" style="font-size:11px; color:#94a3b8; padding:0 2px 8px; text-align:right;"></div>
         <div id="visitsLogContainer">
             <div style="padding:20px; text-align:center; color:#94a3b8;">Loading…</div>
         </div>
+    </div>
+</div>
+
+<!-- ── Report Generator ──────────────────────────────────────────────────── -->
+<div class="invoices-container" id="reportsView" style="display:none;">
+    <div class="card">
+        <h2>📊 Report Generator</h2>
+        <p style="font-size:12px; color:#64748b; margin:-6px 0 14px;">Filter jobs any way you like — by technician, workshop, item category, status or date — then preview below and print or save it as a PDF. Pick one technician to build a worklist you can hand or send to them individually.</p>
+
+        <div class="controls-bar" style="border-radius:8px; margin-bottom:10px;">
+            <select id="rGroupBy" onchange="renderReportPreview()" title="Grouping">
+                <option value="technician">👨‍💻 Group by Technician</option>
+                <option value="flat">📄 Flat List (no grouping)</option>
+            </select>
+            <select id="rTech" onchange="renderReportPreview()" title="Technician">
+                <option value="ALL">All Technicians</option>
+                <option value="UNASSIGNED">🚫 Unassigned Technician</option>
+            </select>
+            <select id="rWorkshop" onchange="renderReportPreview()" title="Workshop">
+                <option value="ALL">All Workshops</option>
+                <option value="UNASSIGNED">🚫 Unassigned Workshop</option>
+            </select>
+            <select id="rItemType" onchange="renderReportPreview()" title="Category">
+                <option value="ALL">All Categories</option>
+                <option value="Computer">Computer</option>
+                <option value="Laptop">Laptop</option>
+                <option value="Printer">Printer</option>
+                <option value="CCTV Camera">CCTV Camera</option>
+                <option value="Other">Other</option>
+            </select>
+            <select id="rStatus" onchange="renderReportPreview()" title="Status">
+                <option value="ALL">All Statuses</option>
+                <option value="Pending">Pending</option>
+                <option value="Pending for Quotation">Pending for Quotation</option>
+                <option value="Ongoing">Ongoing</option>
+                <option value="Warranty Pending">Warranty Pending</option>
+                <option value="Customer Hold">Customer Hold</option>
+                <option value="Completed">Completed</option>
+                <option value="Cant Repair">Cant Repair</option>
+                <option value="Returned">Returned</option>
+                <option value="Warranty Claimed">Warranty Claimed</option>
+            </select>
+            <select id="rHandoverView" onchange="renderReportPreview()" title="Handover status">
+                <option value="HIDE" selected>📦 Hide Handed Over (in-hand accessories)</option>
+                <option value="SHOW">Show Handed Over Only</option>
+                <option value="ALL">Show All Combined</option>
+            </select>
+            <select id="rQuickRange" onchange="onReportQuickRangeChange()" title="Date range (Created)">
+                <option value="all" selected>📅 All Time</option>
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="7days">Last 7 Days</option>
+                <option value="month">This Month</option>
+                <option value="custom">Custom Range…</option>
+            </select>
+            <input type="date" id="rDateFrom" onchange="renderReportPreview()" title="From date" style="display:none;">
+            <input type="date" id="rDateTo" onchange="renderReportPreview()" title="To date" style="display:none;">
+            <input type="text" id="rSearch" placeholder="🔍 Search Job #, Customer, Model, Serial..." oninput="renderReportPreview()">
+        </div>
+
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
+            <div id="rResultsSummary" style="font-size:12px; color:#64748b; font-weight:600;"></div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button type="button" class="btn-reset-filters btn-report" onclick="printReport()" title="Opens a print-ready version — choose 'Save as PDF' as the printer destination to save it">🖨️ Print / Save as PDF</button>
+                <button type="button" class="btn-reset-filters" onclick="resetReportFilters()">✕ Reset Filters</button>
+            </div>
+        </div>
+
+        <div id="reportPreviewContainer"><div style="padding:20px; text-align:center; color:#94a3b8;">Loading…</div></div>
     </div>
 </div>
 
@@ -1242,18 +1334,20 @@ function createJitteredPoller(fn, baseMs, jitterMs) {
         cachedGetJSON(WORKSHOPS_CACHE_KEY, REFERENCE_CACHE_MAX_AGE_MS, () => fetch(`${WEB_APP_URL}?action=getWorkshopsList`).then(res => res.json()))
         .then(data => {
             if(data.success) {
-                const regWork = document.getElementById('workshop'); const ovrWork = document.getElementById('oWorkshop'); const filWork = document.getElementById('fWorkshop');
+                const regWork = document.getElementById('workshop'); const ovrWork = document.getElementById('oWorkshop'); const filWork = document.getElementById('fWorkshop'); const repWork = document.getElementById('rWorkshop');
                 regWork.innerHTML = '<option value="">Select Workshop Location</option>'; ovrWork.innerHTML = '<option value="">Override Location</option>'; filWork.innerHTML = '<option value="ALL">All Workshops</option><option value="UNASSIGNED">🚫 Unassigned Workshop</option>';
-                data.workshops.forEach(wName => { const opt = `<option value="${wName}">${wName}</option>`; regWork.innerHTML += opt; ovrWork.innerHTML += opt; filWork.innerHTML += opt; });
+                if (repWork) repWork.innerHTML = '<option value="ALL">All Workshops</option><option value="UNASSIGNED">🚫 Unassigned Workshop</option>';
+                data.workshops.forEach(wName => { const opt = `<option value="${wName}">${wName}</option>`; regWork.innerHTML += opt; ovrWork.innerHTML += opt; filWork.innerHTML += opt; if (repWork) repWork.innerHTML += opt; });
             }
         });
 
         cachedGetJSON(TECHNICIANS_CACHE_KEY, REFERENCE_CACHE_MAX_AGE_MS, () => fetch(`${WEB_APP_URL}?action=getTechniciansList`).then(res => res.json()))
         .then(data => {
             if(data.success) {
-                const regTech = document.getElementById('tech'); const ovrTech = document.getElementById('oTech'); const filTech = document.getElementById('fTech');
+                const regTech = document.getElementById('tech'); const ovrTech = document.getElementById('oTech'); const filTech = document.getElementById('fTech'); const repTech = document.getElementById('rTech');
                 regTech.innerHTML = '<option value="">Select Person</option>'; ovrTech.innerHTML = '<option value="">Assign Person</option>'; filTech.innerHTML = '<option value="ALL">All Technicians</option><option value="UNASSIGNED">🚫 Unassigned Technician</option>';
-                data.technicians.forEach(name => { const opt = `<option value="${name}">${name}</option>`; regTech.innerHTML += opt; ovrTech.innerHTML += opt; filTech.innerHTML += opt; });
+                if (repTech) repTech.innerHTML = '<option value="ALL">All Technicians</option><option value="UNASSIGNED">🚫 Unassigned Technician</option>';
+                data.technicians.forEach(name => { const opt = `<option value="${name}">${name}</option>`; regTech.innerHTML += opt; ovrTech.innerHTML += opt; filTech.innerHTML += opt; if (repTech) repTech.innerHTML += opt; });
             }
         });
     }
@@ -2905,14 +2999,17 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action
         document.getElementById('invoicesView').style.display = tab === 'invoices' ? '' : 'none';
         document.getElementById('usersView').style.display = tab === 'users' ? '' : 'none';
         document.getElementById('visitsView').style.display = tab === 'visits' ? '' : 'none';
+        document.getElementById('reportsView').style.display = tab === 'reports' ? '' : 'none';
         document.getElementById('tabBtnPipeline').classList.toggle('active', tab === 'pipeline');
         document.getElementById('tabBtnInvoices').classList.toggle('active', tab === 'invoices');
         document.getElementById('tabBtnUsers').classList.toggle('active', tab === 'users');
         document.getElementById('tabBtnVisits').classList.toggle('active', tab === 'visits');
+        document.getElementById('tabBtnReports').classList.toggle('active', tab === 'reports');
 
         if (tab === 'invoices' && allInvoicesList.length === 0) fetchInvoicesList();
         if (tab === 'users') fetchUserManagementData();
         if (tab === 'visits') fetchPortalVisitsLog();
+        if (tab === 'reports') renderReportPreview();
     }
 
     // ── Users & Workshops management (Super Admin only, v11.8) ─────────────
@@ -2993,9 +3090,34 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action
         .catch(() => showToast('Network error loading scan log.', 'error'));
     }
 
+    // Turns a quick-range mode into an inclusive {from, to} pair of
+    // YYYY-MM-DD date keys, matching the dateLabel format the backend
+    // already stamps each scan with. Returns null for "all" (no filtering).
+    function quickRangeToDateKeys(mode) {
+        if (mode === 'all') return null;
+        const toKey = (d) => d.toISOString().slice(0, 10);
+        const now = new Date();
+        if (mode === 'today') { const k = toKey(now); return { from: k, to: k }; }
+        if (mode === 'yesterday') { const k = toKey(new Date(now.getTime() - 86400000)); return { from: k, to: k }; }
+        if (mode === '7days') { return { from: toKey(new Date(now.getTime() - 6 * 86400000)), to: toKey(now) }; }
+        if (mode === 'month') { return { from: toKey(new Date(now.getFullYear(), now.getMonth(), 1)), to: toKey(now) }; }
+        return null; // 'custom' is handled by the caller using the date inputs directly
+    }
+
+    // Shows/hides the custom date inputs and re-renders whenever the quick
+    // range dropdown changes.
+    function onVisitsQuickRangeChange() {
+        const isCustom = document.getElementById('vfQuickRange').value === 'custom';
+        document.getElementById('vfDateFrom').style.display = isCustom ? '' : 'none';
+        document.getElementById('vfDateTo').style.display = isCustom ? '' : 'none';
+        renderVisitsLog();
+    }
+
     function renderVisitsLog() {
         const container = document.getElementById('visitsLogContainer');
+        const summary = document.getElementById('vfResultsSummary');
         const q = (document.getElementById('fVisitsSearch').value || '').trim().toLowerCase();
+        const rangeMode = document.getElementById('vfQuickRange').value;
 
         let visits = allPortalVisitsList;
         if (q) {
@@ -3006,8 +3128,29 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action
             );
         }
 
+        // Date range filter — defaults to "Today" so the log doesn't show
+        // every scan ever recorded. Switch to "All Time" or a custom range
+        // to see more.
+        if (rangeMode === 'custom') {
+            const from = document.getElementById('vfDateFrom').value;
+            const to = document.getElementById('vfDateTo').value;
+            if (from) visits = visits.filter(v => v.dateLabel >= from);
+            if (to) visits = visits.filter(v => v.dateLabel <= to);
+        } else {
+            const keys = quickRangeToDateKeys(rangeMode);
+            if (keys) visits = visits.filter(v => v.dateLabel >= keys.from && v.dateLabel <= keys.to);
+        }
+
+        if (summary) {
+            summary.textContent = allPortalVisitsList.length
+                ? `Showing ${visits.length} of ${allPortalVisitsList.length} total scan${allPortalVisitsList.length === 1 ? '' : 's'}`
+                : '';
+        }
+
         if (visits.length === 0) {
-            container.innerHTML = '<div style="padding:20px; text-align:center; color:#94a3b8;">No scans recorded yet.</div>';
+            container.innerHTML = allPortalVisitsList.length === 0
+                ? '<div style="padding:20px; text-align:center; color:#94a3b8;">No scans recorded yet.</div>'
+                : '<div style="padding:20px; text-align:center; color:#94a3b8;">No scans match your filters. Try widening the date range.</div>';
             return;
         }
 
@@ -3557,13 +3700,51 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action
             .catch(() => { container.innerHTML = '<tr><td colspan="5" style="padding:20px; text-align:center; color:#ef476f;">Network error loading invoices.</td></tr>'; });
     }
 
+    // Turns a quick-range mode into an inclusive {from, to} pair of Date
+    // objects spanning local start-of-day to end-of-day. Returns null for
+    // "all" (no filtering).
+    function quickRangeToDateBounds(mode) {
+        if (mode === 'all') return null;
+        const now = new Date();
+        const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+        const endOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+        if (mode === 'today') return { from: startOfDay(now), to: endOfDay(now) };
+        if (mode === 'yesterday') { const y = new Date(now.getTime() - 86400000); return { from: startOfDay(y), to: endOfDay(y) }; }
+        if (mode === '7days') return { from: startOfDay(new Date(now.getTime() - 6 * 86400000)), to: endOfDay(now) };
+        if (mode === 'month') return { from: startOfDay(new Date(now.getFullYear(), now.getMonth(), 1)), to: endOfDay(now) };
+        return null; // 'custom' is handled by the caller using the date inputs directly
+    }
+
+    // Shows/hides the custom date inputs and re-renders whenever the quick
+    // range dropdown changes.
+    function onInvoicesQuickRangeChange() {
+        const isCustom = document.getElementById('ifQuickRange').value === 'custom';
+        document.getElementById('ifDateFrom').style.display = isCustom ? '' : 'none';
+        document.getElementById('ifDateTo').style.display = isCustom ? '' : 'none';
+        renderInvoicesTable();
+    }
+
     function renderInvoicesTable() {
         const container = document.getElementById('invoicesRowsContainer');
+        const summary = document.getElementById('ifResultsSummary');
         const search = (document.getElementById('ifSearch').value || '').toLowerCase().trim();
         const statusFilter = document.getElementById('ifPaymentStatus').value;
-        const dateFrom = document.getElementById('ifDateFrom').value;
-        const dateTo = document.getElementById('ifDateTo').value;
+        const rangeMode = document.getElementById('ifQuickRange').value;
 
+        let dateFrom = null, dateTo = null;
+        if (rangeMode === 'custom') {
+            const fromVal = document.getElementById('ifDateFrom').value;
+            const toVal = document.getElementById('ifDateTo').value;
+            if (fromVal) dateFrom = new Date(fromVal);
+            if (toVal) dateTo = new Date(toVal + 'T23:59:59');
+        } else {
+            const bounds = quickRangeToDateBounds(rangeMode);
+            if (bounds) { dateFrom = bounds.from; dateTo = bounds.to; }
+        }
+
+        // Date range filter — defaults to "Today" so the list doesn't load
+        // every invoice ever created. Switch to "All Time" or a custom
+        // range to see more.
         const filtered = allInvoicesList.filter(inv => {
             if (statusFilter !== 'ALL' && inv.paymentStatus !== statusFilter) return false;
             if (search) {
@@ -3572,14 +3753,20 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action
             }
             if (dateFrom || dateTo) {
                 const d = new Date(inv.createdDate);
-                if (dateFrom && d < new Date(dateFrom)) return false;
-                if (dateTo && d > new Date(dateTo + 'T23:59:59')) return false;
+                if (dateFrom && d < dateFrom) return false;
+                if (dateTo && d > dateTo) return false;
             }
             return true;
         });
 
+        if (summary) {
+            summary.textContent = allInvoicesList.length
+                ? `Showing ${filtered.length} of ${allInvoicesList.length} total invoice${allInvoicesList.length === 1 ? '' : 's'}`
+                : '';
+        }
+
         if (filtered.length === 0) {
-            container.innerHTML = '<tr><td colspan="5" style="padding:20px; text-align:center; color:#94a3b8;">No invoices match your filters.</td></tr>';
+            container.innerHTML = '<tr><td colspan="5" style="padding:20px; text-align:center; color:#94a3b8;">No invoices match your filters. Try widening the date range.</td></tr>';
             return;
         }
 
@@ -3834,6 +4021,228 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action
             btn.disabled = false; btn.innerText = 'Login';
         });
     });
+    // ─────────────────────────────────────────────────────────────────────
+
+    // ── Report Generator (Reports tab) ───────────────────────────────────
+    // Builds an on-demand, filterable job/accessories report — by
+    // technician, workshop, category, status and date range — previewed
+    // in-page, then opened in a print-ready window so it can be printed or
+    // saved as a PDF via the browser's print dialog. Reuses jobsCacheArray,
+    // which the Pipeline tab already keeps in sync.
+
+    // Toggles the custom date inputs and re-renders whenever the quick
+    // range dropdown changes. Reuses quickRangeToDateBounds() (defined
+    // above for the Invoices tab).
+    function onReportQuickRangeChange() {
+        const isCustom = document.getElementById('rQuickRange').value === 'custom';
+        document.getElementById('rDateFrom').style.display = isCustom ? '' : 'none';
+        document.getElementById('rDateTo').style.display = isCustom ? '' : 'none';
+        renderReportPreview();
+    }
+
+    function resetReportFilters() {
+        document.getElementById('rGroupBy').value = 'technician';
+        document.getElementById('rTech').value = 'ALL';
+        document.getElementById('rWorkshop').value = 'ALL';
+        document.getElementById('rItemType').value = 'ALL';
+        document.getElementById('rStatus').value = 'ALL';
+        document.getElementById('rHandoverView').value = 'HIDE';
+        document.getElementById('rQuickRange').value = 'all';
+        document.getElementById('rDateFrom').value = '';
+        document.getElementById('rDateTo').value = '';
+        document.getElementById('rDateFrom').style.display = 'none';
+        document.getElementById('rDateTo').style.display = 'none';
+        document.getElementById('rSearch').value = '';
+        renderReportPreview();
+    }
+
+    // Returns jobs from jobsCacheArray matching every active Reports-tab
+    // filter. Date filtering uses parseAnyDate() (defined above) since
+    // job.createdTime can arrive in a few different string shapes.
+    function getFilteredReportJobs() {
+        const tech = document.getElementById('rTech').value;
+        const workshop = document.getElementById('rWorkshop').value;
+        const itemType = document.getElementById('rItemType').value;
+        const status = document.getElementById('rStatus').value;
+        const handoverView = document.getElementById('rHandoverView').value;
+        const search = (document.getElementById('rSearch').value || '').toLowerCase().trim();
+        const rangeMode = document.getElementById('rQuickRange').value;
+
+        let dateFrom = null, dateTo = null;
+        if (rangeMode === 'custom') {
+            const fromVal = document.getElementById('rDateFrom').value;
+            const toVal = document.getElementById('rDateTo').value;
+            if (fromVal) dateFrom = new Date(fromVal);
+            if (toVal) dateTo = new Date(toVal + 'T23:59:59');
+        } else {
+            const bounds = quickRangeToDateBounds(rangeMode);
+            if (bounds) { dateFrom = bounds.from; dateTo = bounds.to; }
+        }
+
+        return jobsCacheArray.filter(job => {
+            if (tech !== 'ALL' && !(tech === 'UNASSIGNED' ? !(job.tech && job.tech.trim()) : job.tech === tech)) return false;
+            if (workshop !== 'ALL' && !(workshop === 'UNASSIGNED' ? !(job.workshop && job.workshop.trim()) : job.workshop === workshop)) return false;
+            if (itemType !== 'ALL' && job.itemType !== itemType) return false;
+            if (status !== 'ALL' && job.status !== status) return false;
+            // Handover filter — defaults to "HIDE", so the report defaults
+            // to accessories/items still physically in-hand (not yet
+            // returned to the customer), which is what a technician needs
+            // to check status against.
+            if (handoverView === 'HIDE' && job.isHandedOver) return false;
+            if (handoverView === 'SHOW' && !job.isHandedOver) return false;
+            if (search) {
+                const haystack = [job.jobNum, job.customer, job.mobile, job.model, job.serial, job.fault].join(' ').toLowerCase();
+                if (!haystack.includes(search)) return false;
+            }
+            if (dateFrom || dateTo) {
+                const d = parseAnyDate(job.createdTime);
+                if (!d) return false;
+                if (dateFrom && d < dateFrom) return false;
+                if (dateTo && d > dateTo) return false;
+            }
+            return true;
+        });
+    }
+
+    // Groups a job list into { 'Technician Name': [jobs...] }, sorted by
+    // group name with "Unassigned" pushed to the end.
+    function groupJobsByTech(jobs) {
+        const groups = {};
+        jobs.forEach(job => {
+            const key = (job.tech && job.tech.trim()) ? job.tech.trim() : 'Unassigned';
+            (groups[key] = groups[key] || []).push(job);
+        });
+        return Object.keys(groups).sort((a, b) => {
+            if (a === 'Unassigned') return 1;
+            if (b === 'Unassigned') return -1;
+            return a.localeCompare(b);
+        }).map(name => ({ name: name, jobs: groups[name] }));
+    }
+
+    // One <table> of jobs — used both for the in-page preview and the
+    // printable report, so the two always look the same.
+    function reportJobsTableHtml(jobs) {
+        const esc = (s) => (s === null || s === undefined) ? '' : String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+        const rows = jobs.map(j => `
+            <tr>
+                <td>#${esc(j.jobNum)}</td>
+                <td>${esc(j.createdTime)}</td>
+                <td>${esc(j.customer)}${j.mobile ? `<br><span style="font-size:10.5px; color:#64748b;">${esc(j.mobile)}</span>` : ''}</td>
+                <td>${esc(j.itemType)}${j.model ? '<br><span style="font-size:10.5px; color:#64748b;">' + esc(j.model) + '</span>' : ''}</td>
+                <td>${esc(j.serial) || '—'}</td>
+                <td>${esc(j.fault) || '—'}</td>
+                <td>${esc(j.workshop) || '—'}</td>
+                <td><span class="status-tag status-${(j.status || '').replace(/\s+/g, '')}" style="font-size:10px; padding:4px 10px;">${esc(j.status)}</span></td>
+            </tr>`).join('');
+        return `<table class="pipeline-table">
+            <thead><tr><th>Job #</th><th>Date</th><th>Customer</th><th>Item / Model</th><th>Serial #</th><th>Fault / Notes</th><th>Workshop</th><th>Status</th></tr></thead>
+            <tbody>${rows}</tbody>
+        </table>`;
+    }
+
+    // Renders the live, in-page preview (grouped by technician or flat).
+    function renderReportPreview() {
+        const container = document.getElementById('reportPreviewContainer');
+        const summary = document.getElementById('rResultsSummary');
+        if (!container) return; // Reports tab not on this page
+
+        const jobs = getFilteredReportJobs();
+        const groupBy = document.getElementById('rGroupBy').value;
+
+        if (summary) {
+            summary.textContent = jobs.length
+                ? `${jobs.length} job${jobs.length === 1 ? '' : 's'} match${jobs.length === 1 ? 'es' : ''} your filters (of ${jobsCacheArray.length} total)`
+                : `0 jobs match your filters (of ${jobsCacheArray.length} total)`;
+        }
+
+        if (jobsCacheArray.length === 0) {
+            container.innerHTML = '<div style="padding:20px; text-align:center; color:#94a3b8;">No pipeline data loaded yet — visit the Jobs Dashboard tab to sync, then come back here.</div>';
+            return;
+        }
+        if (jobs.length === 0) {
+            container.innerHTML = '<div style="padding:20px; text-align:center; color:#94a3b8;">No jobs match your filters. Try widening the date range or category.</div>';
+            return;
+        }
+
+        if (groupBy === 'flat') {
+            container.innerHTML = `<div class="table-responsive-wrapper">${reportJobsTableHtml(jobs)}</div>`;
+            return;
+        }
+
+        const groups = groupJobsByTech(jobs);
+        container.innerHTML = groups.map(g => `
+            <div style="margin-bottom:18px;">
+                <div style="font-weight:800; font-size:13px; color:#1e3a8a; background:#eff6ff; padding:8px 12px; border-radius:6px; margin-bottom:6px;">
+                    👨‍💻 ${g.name === 'Unassigned' ? '🚫 Unassigned' : g.name}
+                    <span style="font-weight:400; color:#64748b;"> — ${g.jobs.length} job${g.jobs.length === 1 ? '' : 's'}</span>
+                </div>
+                <div class="table-responsive-wrapper">${reportJobsTableHtml(g.jobs)}</div>
+            </div>`).join('');
+    }
+
+    // Opens a clean, print-ready window with the same filtered data as the
+    // preview. The person then uses the browser's print dialog and picks
+    // "Save as PDF" as the destination to save it, or prints it directly —
+    // the same pattern already used for job cards and invoices.
+    function printReport() {
+        const jobs = getFilteredReportJobs();
+        if (jobs.length === 0) {
+            showToast('No jobs match the current filters. Adjust filters and try again.', 'info');
+            return;
+        }
+        const esc = (s) => (s === null || s === undefined) ? '' : String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+        const groupBy = document.getElementById('rGroupBy').value;
+        const tech = document.getElementById('rTech').value;
+        const rangeMode = document.getElementById('rQuickRange').value;
+        const rangeLabelMap = { all: 'All Dates', today: 'Today', yesterday: 'Yesterday', '7days': 'Last 7 Days', month: 'This Month' };
+        let rangeLabel = rangeLabelMap[rangeMode];
+        if (!rangeLabel) {
+            const from = document.getElementById('rDateFrom').value, to = document.getElementById('rDateTo').value;
+            rangeLabel = (from || to) ? `${from || 'Start'} → ${to || 'Today'}` : 'All Dates';
+        }
+        const titleSuffix = tech !== 'ALL' ? ` — ${tech === 'UNASSIGNED' ? 'Unassigned Technician' : tech}` : '';
+
+        const printStyles = `
+            body{font-family:'Segoe UI',Tahoma,sans-serif;padding:24px;color:#1e293b;}
+            h1{color:#1e3a8a;margin-bottom:4px;font-size:20px;}
+            .meta{font-size:12px;color:#64748b;margin-bottom:18px;}
+            table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:4px;}
+            th{background:#f1f5f9;text-align:left;padding:6px 8px;border-bottom:2px solid #cbd5e1;}
+            td{padding:6px 8px;border-bottom:1px solid #e2e8f0;vertical-align:top;}
+            .status-tag{padding:3px 9px;border-radius:20px;font-size:9px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;color:white;display:inline-block;white-space:nowrap;}
+            .status-Pending{background:#ea580c;} .status-PendingforQuotation{background:#f59e0b;} .status-Ongoing{background:#2563eb;}
+            .status-WarrantyPending{background:#6366f1;} .status-Completed{background:#059669;} .status-Returned{background:#b91c1c;}
+            .status-CantRepair{background:#ef476f;} .status-WarrantyClaimed{background:#7c3aed;} .status-CustomerHold{background:#0891b2;}
+            .tech-group{margin-bottom:26px; page-break-inside:avoid;}
+            .tech-heading{font-weight:800;font-size:13px;color:#1e3a8a;background:#eff6ff;padding:8px 12px;border-radius:6px;margin-bottom:6px;}
+            .tech-heading span{font-weight:400;color:#64748b;}
+            @media print { body{padding:8px;} .tech-group{page-break-after:always;} .tech-group:last-child{page-break-after:auto;} }
+        `;
+
+        let bodyHtml;
+        if (groupBy === 'flat') {
+            bodyHtml = reportJobsTableHtml(jobs);
+        } else {
+            const groups = groupJobsByTech(jobs);
+            bodyHtml = groups.map(g => `
+                <div class="tech-group">
+                    <div class="tech-heading">👨‍💻 ${esc(g.name === 'Unassigned' ? '🚫 Unassigned' : g.name)} <span>— ${g.jobs.length} job${g.jobs.length === 1 ? '' : 's'}</span></div>
+                    ${reportJobsTableHtml(g.jobs)}
+                </div>`).join('');
+        }
+
+        const reportHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Job Report${esc(titleSuffix)}</title>
+        <style>${printStyles}</style></head><body>
+            <h1>📊 ${esc(COMPANY_INFO.name)} — Job / Accessories Report${esc(titleSuffix)}</h1>
+            <div class="meta">Date Range: <strong>${esc(rangeLabel)}</strong> &nbsp;|&nbsp; Generated: ${esc(new Date().toLocaleString('en-GB'))} &nbsp;|&nbsp; Total Jobs: <strong>${jobs.length}</strong></div>
+            ${bodyHtml}
+            <script>window.onload=function(){window.print();};<\/script>
+        </body></html>`;
+
+        const win = window.open('', '_blank', 'width=980,height=720');
+        if (!win) { showToast('Pop-up blocked. Please allow pop-ups to generate the report.', 'error', 6000); return; }
+        win.document.open(); win.document.write(reportHtml); win.document.close();
+    }
     // ─────────────────────────────────────────────────────────────────────
 
     // ── Filtered Date-Range Report Generator ────────────────────────────

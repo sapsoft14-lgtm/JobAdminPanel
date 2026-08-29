@@ -620,6 +620,8 @@ body.dark-mode .sms-status-badge.sms-badge-fail { background: #450a0a; color: #f
                             <option value="Laptop">Laptop</option>
                             <option value="Printer">Printer</option>
                             <option value="CCTV Camera">CCTV Camera</option>
+                            <option value="Monitor">Monitor</option>
+                            <option value="UPS">UPS</option>
                             <option value="Other">Other</option>
                         </select>
                     </div>
@@ -782,6 +784,8 @@ body.dark-mode .sms-status-badge.sms-badge-fail { background: #450a0a; color: #f
                 <option value="Laptop">Laptop</option>
                 <option value="Printer">Printer</option>
                 <option value="CCTV Camera">CCTV Camera</option>
+                <option value="Monitor">Monitor</option>
+                <option value="UPS">UPS</option>
                 <option value="Other">Other</option>
             </select>
             <select id="fWorkshop" onchange="renderPipelineTable()"><option value="ALL">All Workshops</option><option value="UNASSIGNED">🚫 Unassigned Workshop</option><option value="SAP -  Shop 14">SAP -  Shop 14</option><option value="kalagedihen prj">kalagedihen prj</option><option value="Mr. Gayan - Kadawatha">Mr. Gayan - Kadawatha</option><option value="SAP - Shop 68">SAP - Shop 68</option><option value="SAP CCTV Shop Gampaha">SAP CCTV Shop Gampaha</option><option value="Smart Technology">Smart Technology</option><option value="Ishika - Udigampola">Ishika - Udigampola</option></select>
@@ -993,6 +997,8 @@ body.dark-mode .sms-status-badge.sms-badge-fail { background: #450a0a; color: #f
                 <option value="Laptop">Laptop</option>
                 <option value="Printer">Printer</option>
                 <option value="CCTV Camera">CCTV Camera</option>
+                <option value="Monitor">Monitor</option>
+                <option value="UPS">UPS</option>
                 <option value="Other">Other</option>
             </select>
             <select id="rStatus" onchange="renderReportPreview()" title="Status">
@@ -2475,6 +2481,8 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action
         'Laptop': ['Storage Device (HDD / SSD)', 'RAM Module(s)', 'Motherboard', 'Battery', 'Charger / AC Adapter', 'Keyboard', 'Touchpad', 'Display / Screen', 'Hinges', 'Speakers', 'Webcam'],
         'Printer': ['Print Head / Cartridge', 'Ink / Toner Level', 'Paper Feed Roller', 'Power Supply Unit', 'USB / Network Port', 'Control Panel / Display'],
         'CCTV Camera': ['Camera Unit(s)', 'DVR / NVR Unit', 'Power Adapter', 'Cabling / Connectors', 'Storage Device (HDD)', 'Network Connection'],
+        'Monitor': ['Display Panel / Screen', 'Backlight / LED Strips', 'Power Board / PSU', 'Main Board / T-CON Board', 'HDMI / VGA / DisplayPort Input', 'Power Cable / Adapter', 'Stand / Base Mount', 'Buttons / Control Panel'],
+        'UPS': ['Battery Unit(s)', 'Main Circuit Board (PCB)', 'Power Input Cable', 'Output Sockets', 'Charging Circuit', 'Display / Indicator Panel', 'Cooling Fan', 'Casing / Housing'],
         'Other': ['Main Unit / Body', 'Power Supply / Cable', 'Storage Device (if any)', 'Physical Casing / Housing']
     };
     function getDiagnosticPartsForCategory(itemType) {

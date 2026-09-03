@@ -1923,7 +1923,8 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
                                 </div>
                                 <a class="btn-pill-action btn-history-link" onclick="event.stopPropagation(); toggleAdminHistoryPane(${job.jobNum})">🔍 View History</a>
                                 <a class="btn-pill-action btn-print-link" onclick="event.stopPropagation(); reprintJobCard(${job.jobNum})">🖨️ Reprint Card</a>
-                                <a class="btn-invoice-link" onclick="event.stopPropagation(); openInvoiceModal(${job.jobNum}, ${JSON.stringify(job.customer || '').replace(/"/g, '&quot;')}, ${JSON.stringify(job.mobile || '').replace(/"/g, '&quot;')}, ${JSON.stringify(job.itemType || '').replace(/"/g, '&quot;')}, ${JSON.stringify(job.model || '').replace(/"/g, '&quot;')})">🧾 Invoice</a>
+                                <a class="btn-invoice-link" onclick="event.stopPropagation(); openInvoiceModal(${job.jobNum}, ${JSON.stringify(job.customer || '').replace(/"/g, '&quot;')}, ${JSON.stringify(job.mobile || '').replace(/"/g, '&quot;')}, ${JSON.stringify(job.itemType || '').replace(/"/g, '&quot;')}, ${JSON.stringify(job.model || '').replace(/"/g, '&quot;')})">${job.hasInvoice ? '🧾 Edit Invoice' : '🧾 Invoice'}</a>
+                                ${job.hasInvoice ? `<span class="invoice-status-tag invoice-status-${job.invoicePaymentStatus}" style="margin-left:6px; vertical-align:middle;" title="Invoice #${job.invoiceNum} — ${job.invoicePaymentStatus}">✅ #${job.invoiceNum} · ${job.invoicePaymentStatus}</span>` : ''}
                                 <br>
                                 <button type="button" id="informedBtn-${job.jobNum}" class="btn-informed" onclick="event.stopPropagation(); markCustomerInformedSubmit(${job.jobNum}, this)">
                                     📣 Customer Informed${job.informedCount ? ` <span class="informed-count-badge">${job.informedCount}</span>` : ''}
@@ -3493,6 +3494,16 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action
                 showToast(`Invoice #${data.invoiceNum} saved.`, 'success');
                 currentInvoiceNumOnFile = data.invoiceNum;
                 allInvoicesList = []; // force a fresh fetch next time the Invoices tab is viewed
+
+                // Mark this job's card as invoiced right away — don't wait for
+                // the next pipeline Sync to show the badge next to the button.
+                const cachedJobForInvoice = jobsCacheArray.find(j => j.jobNum === currentInvoiceJobNum);
+                if (cachedJobForInvoice) {
+                    cachedJobForInvoice.hasInvoice = true;
+                    cachedJobForInvoice.invoiceNum = data.invoiceNum;
+                    cachedJobForInvoice.invoicePaymentStatus = payload.paymentStatus;
+                    renderPipelineTable();
+                }
 
                 // Auto-handover: reuses the same toggleHandoverStatus action the
                 // pipeline's own Handover switch calls, so no backend change is

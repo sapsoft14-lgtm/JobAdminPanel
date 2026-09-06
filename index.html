@@ -477,6 +477,40 @@
 body.dark-mode .sms-status-badge.sms-badge-sending { background: #0c2440; color: #93c5fd; }
 body.dark-mode .sms-status-badge.sms-badge-success { background: #052e1f; color: #6ee7b7; }
 body.dark-mode .sms-status-badge.sms-badge-fail { background: #450a0a; color: #fca5a5; }
+
+/* ── Bulk job registration: additional item rows under the main form ────
+   Lets a customer drop off several accessories at once. Mobile/Client Name
+   stay shared at the top of the form; each extra row below adds its own
+   Category/Model/Serial/Fault/Estimate/Workshop/Tech, and every row still
+   becomes its own unique job number on submit. */
+.add-bulk-item-btn {
+    width: 100%; margin-top: 4px; margin-bottom: 6px; padding: 9px;
+    background: #eef2ff; color: #3730a3; border: 1px dashed #a5b4fc;
+    border-radius: 6px; font-weight: 700; font-size: 12.5px; cursor: pointer;
+}
+.add-bulk-item-btn:hover { background: #e0e7ff; }
+body.dark-mode .add-bulk-item-btn { background: #1e1b4b; color: #c7d2fe; border-color: #4338ca; }
+
+.bulk-item-row {
+    border: 1px solid #c7d2fe; background: #f5f7ff; border-radius: 8px;
+    padding: 10px 12px; margin-bottom: 12px; position: relative;
+}
+body.dark-mode .bulk-item-row { background: #171335; border-color: #3730a3; }
+.bulk-item-row-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 8px; font-size: 12px; font-weight: 800; color: #3730a3;
+    text-transform: uppercase; letter-spacing: 0.3px;
+}
+body.dark-mode .bulk-item-row-header { color: #c7d2fe; }
+.bulk-item-remove-btn {
+    background: #fee2e2; color: #b91c1c; border: none; padding: 4px 9px;
+    border-radius: 5px; font-size: 11px; font-weight: 700; cursor: pointer;
+}
+.bulk-item-remove-btn:hover { background: #fecaca; }
+
+.bulk-mode-hint {
+    font-size: 11px; color: #64748b; margin: -4px 0 8px 0; font-style: italic;
+}
     </style>
 </head>
 <body>
@@ -592,7 +626,7 @@ body.dark-mode .sms-status-badge.sms-badge-fail { background: #450a0a; color: #f
                 </div>
             </div>
 <div id="registrationSuccessMessage" class="success-banner">
-    🎉 Job registered successfully! &nbsp;
+    <span id="registrationSuccessText">🎉 Job registered successfully!</span> &nbsp;
     <button type="button" id="printJobCardBtn" onclick="printJobCard()" style="background:#1e3a8a; color:white; border:none; padding:6px 12px; border-radius:5px; font-weight:bold; cursor:pointer; font-size:12px; margin-left:6px;">🖨️ Print Job Card</button>
     <div id="smsStatusBadge" class="sms-status-badge"></div>
 </div>
@@ -654,6 +688,15 @@ body.dark-mode .sms-status-badge.sms-badge-fail { background: #450a0a; color: #f
                     <div class="form-group"><label>Workshop</label><select id="workshop"><option value="">Select Workshop Location</option><option value="SAP -  Shop 14">SAP -  Shop 14</option><option value="kalagedihen prj">kalagedihen prj</option><option value="Mr. Gayan - Kadawatha">Mr. Gayan - Kadawatha</option><option value="SAP - Shop 68">SAP - Shop 68</option><option value="SAP CCTV Shop Gampaha">SAP CCTV Shop Gampaha</option><option value="Smart Technology">Smart Technology</option><option value="Ishika - Udigampola">Ishika - Udigampola</option></select></div>
                     <div class="form-group"><label>Tech</label><select id="tech"><option value="">Select Person</option><option value="WM Nayanajijth">WM Nayanajijth</option><option value="Supun Samarasinghe">Supun Samarasinghe</option><option value="Isuru Lakshitha">Isuru Lakshitha</option><option value="Ayesh Harshana">Ayesh Harshana</option><option value="Dilka Dulakshana">Dilka Dulakshana</option><option value="Front Officer">Front Officer</option><option value="Chamith Sandeepa">Chamith Sandeepa</option><option value="Pradeep Kaushalya">Pradeep Kaushalya</option></select></div>
                 </div>
+
+                <!-- ── Bulk registration: extra items for the SAME customer ──────────
+                     Mobile/Client Name above are entered once and reused for every
+                     item added here. Each item still gets registered as its own
+                     unique job number. -->
+                <div id="bulkItemsContainer"></div>
+                <button type="button" class="add-bulk-item-btn" onclick="addBulkItemRow()">📦 + Add Another Item (Same Customer)</button>
+                <div class="bulk-mode-hint" id="bulkModeHint" style="display:none;">Registering multiple items for this customer — each will get its own job number.</div>
+
                 <div class="form-group" style="display:flex; align-items:center; gap:2px; background:ff4444; border:1px solid ff4444; border-radius:5px; padding:5px 8px; margin-top:2px;">
                     <input type="checkbox" id="includeDiagnosticPage" checked style="width:13px; height:13px; margin:0; flex-shrink:0; cursor:pointer; accent-color:#1e3a8a;">
                     <label for="includeDiagnosticPage" style="margin:0; font-weight:600; font-size:9px; color:b0e2ff; cursor:pointer; line-height:1.25;">
@@ -1264,6 +1307,7 @@ body.dark-mode .sms-status-badge.sms-badge-fail { background: #450a0a; color: #f
     };
 
     let lastRegisteredJob = null; // holds data for the most recently registered ticket, used for printing
+    let lastRegisteredBulk = null; // holds { mobile, customerName, batchId, items:[...] } for the most recently registered bundle
 
     // ── Customer Status Portal (QR on Job Card) ─────────────────────────────
     // Point this at wherever Customer_Status.html is hosted (e.g. GitHub
@@ -1285,14 +1329,137 @@ body.dark-mode .sms-status-badge.sms-badge-fail { background: #450a0a; color: #f
     // ─────────────────────────────────────────────────────────────────────────
 
     // ── Repair Estimate Range Helpers ───────────────────────────────────
-    function getEstimatePriceRangeString() {
-        const min = document.getElementById('estimatePriceMin').value.trim();
-        const max = document.getElementById('estimatePriceMax').value.trim();
+    // Optional overrides let the bulk-item rows below reuse this same
+    // formatting logic instead of duplicating it against the shared
+    // #estimatePriceMin/#estimatePriceMax ids used by the main form.
+    function getEstimatePriceRangeString(minOverride, maxOverride) {
+        const min = (minOverride !== undefined ? minOverride : document.getElementById('estimatePriceMin').value).trim();
+        const max = (maxOverride !== undefined ? maxOverride : document.getElementById('estimatePriceMax').value).trim();
         if (min && max) return `${min} - ${max}`;
         if (min) return min;
         if (max) return max;
         return '';
     }
+
+    // ── Bulk job registration: extra item rows ──────────────────────────
+    // Lets the front desk register several accessories from ONE customer in
+    // one submit — mobile/customer name are typed once (in the main form
+    // above); each row added here becomes its own job with its own job
+    // number, sharing a batch_id server-side (see action "registerJobsBulk").
+    let bulkItemRowSeq = 0;
+    let bulkItemRows = []; // ids of currently-rendered extra item rows, in order
+
+    function bulkDropdownOptionsHtml(selectId) {
+        // Reuses whatever options are already rendered in the main form's
+        // Workshop/Tech selects (kept in sync by refreshWorkshopsDropdown /
+        // refreshTechniciansDropdown), so bulk rows never fall out of sync
+        // with the live workshop/technician lists.
+        const src = document.getElementById(selectId);
+        return src ? src.innerHTML : '';
+    }
+
+    function addBulkItemRow() {
+        const id = 'bulkItem' + (++bulkItemRowSeq);
+        bulkItemRows.push(id);
+        const wrap = document.createElement('div');
+        wrap.className = 'bulk-item-row';
+        wrap.id = id;
+        wrap.innerHTML = `
+            <div class="bulk-item-row-header">
+                <span class="bulk-item-row-title"></span>
+                <button type="button" class="bulk-item-remove-btn" onclick="removeBulkItemRow('${id}')">✕ Remove</button>
+            </div>
+            <div class="row">
+                <div class="form-group">
+                    <label>Category</label>
+                    <select class="bulkItemType">
+                        <option value="Computer">Computer</option>
+                        <option value="Laptop">Laptop</option>
+                        <option value="Printer">Printer</option>
+                        <option value="CCTV Camera">CCTV Camera</option>
+                        <option value="Monitor">Monitor</option>
+                        <option value="UPS">UPS</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Model / Brand</label>
+                    <input type="text" class="bulkModel" placeholder="e.g. HP Laptop 15s" autocomplete="off">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Serial Number</label>
+                <input type="text" class="bulkSerial" placeholder="e.g. 5CD1234XYZ" autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label>Fault</label>
+                <textarea class="bulkFault" rows="2" required></textarea>
+            </div>
+            <div class="form-group">
+                <label>Repair Estimate Range (Rs.) <span style="font-weight:400; color:#94a3b8;">— optional</span></label>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <input type="number" class="bulkEstimateMin" placeholder="Min e.g. 3000" min="0" step="0.01" style="flex:1;">
+                    <span style="color:#94a3b8; font-weight:bold;">–</span>
+                    <input type="number" class="bulkEstimateMax" placeholder="Max e.g. 5000" min="0" step="0.01" style="flex:1;">
+                </div>
+            </div>
+            <div class="row">
+                <div class="form-group"><label>Workshop</label><select class="bulkWorkshop">${bulkDropdownOptionsHtml('workshop')}</select></div>
+                <div class="form-group"><label>Tech</label><select class="bulkTech">${bulkDropdownOptionsHtml('tech')}</select></div>
+            </div>`;
+        document.getElementById('bulkItemsContainer').appendChild(wrap);
+        renumberBulkItemRows();
+        updateBulkModeUI();
+    }
+
+    function removeBulkItemRow(id) {
+        bulkItemRows = bulkItemRows.filter((r) => r !== id);
+        const el = document.getElementById(id);
+        if (el) el.remove();
+        renumberBulkItemRows();
+        updateBulkModeUI();
+    }
+
+    function renumberBulkItemRows() {
+        bulkItemRows.forEach((id, idx) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const titleEl = el.querySelector('.bulk-item-row-title');
+            if (titleEl) titleEl.textContent = `📦 Item #${idx + 2}`;
+        });
+    }
+
+    function updateBulkModeUI() {
+        const total = bulkItemRows.length + 1;
+        const btn = document.getElementById('registerTicketBtn');
+        if (btn && !btn.disabled) btn.innerText = total > 1 ? `Register ${total} Tickets (Bundle)` : 'Register Ticket';
+        const hint = document.getElementById('bulkModeHint');
+        if (hint) hint.style.display = total > 1 ? 'block' : 'none';
+    }
+
+    function collectBulkItemsData() {
+        return bulkItemRows.map((id) => {
+            const el = document.getElementById(id);
+            const minVal = el.querySelector('.bulkEstimateMin').value;
+            const maxVal = el.querySelector('.bulkEstimateMax').value;
+            return {
+                itemType: el.querySelector('.bulkItemType').value,
+                model: el.querySelector('.bulkModel').value.trim(),
+                serial: el.querySelector('.bulkSerial').value.trim(),
+                fault: el.querySelector('.bulkFault').value.trim(),
+                workshop: el.querySelector('.bulkWorkshop').value,
+                tech: el.querySelector('.bulkTech').value,
+                estimatedPrice: getEstimatePriceRangeString(minVal, maxVal),
+            };
+        });
+    }
+
+    function resetBulkItemsUI() {
+        bulkItemRows = [];
+        document.getElementById('bulkItemsContainer').innerHTML = '';
+        updateBulkModeUI();
+    }
+    // ─────────────────────────────────────────────────────────────────────
 function createJitteredPoller(fn, baseMs, jitterMs) {
     var timeoutId = null;
     var stopped = false;
@@ -2355,9 +2522,9 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
 
     document.getElementById('registrationForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        const formSnapshot = {
-            mobile: document.getElementById('mobile').value.trim(),
-            customerName: document.getElementById('customerName').value.trim(),
+        const mobile = document.getElementById('mobile').value.trim();
+        const customerName = document.getElementById('customerName').value.trim();
+        const item1 = {
             itemType: document.getElementById('itemType').value,
             model: document.getElementById('model').value.trim(),
             serial: document.getElementById('serial').value.trim(),
@@ -2366,6 +2533,15 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
             tech: document.getElementById('tech').value,
             estimatedPrice: getEstimatePriceRangeString()
         };
+        const formSnapshot = Object.assign({ mobile, customerName }, item1);
+
+        // Extra items added via "📦 + Add Another Item" — empty array means
+        // this is a normal single-item registration, handled exactly as
+        // before (same action, same response shape, zero behaviour change).
+        const bulkExtraItems = bulkItemRows.length > 0 ? collectBulkItemsData() : [];
+        const isBulk = bulkExtraItems.length > 0;
+        const allItems = isBulk ? [item1].concat(bulkExtraItems) : null;
+
         // Print-time preference only — never sent to the server, used purely
         // to decide whether the job card print-out gets the optional 3rd
         // "Diagnostic Order / Parts Checking" page.
@@ -2375,7 +2551,9 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         const regBtn = document.getElementById('registerTicketBtn');
         const regBtnOriginalHtml = regBtn.innerHTML;
         regBtn.disabled = true;
-        regBtn.innerHTML = '<span class="btn-spinner"></span>Registering Job...';
+        regBtn.innerHTML = isBulk
+            ? `<span class="btn-spinner"></span>Registering ${allItems.length} Tickets...`
+            : '<span class="btn-spinner"></span>Registering Job...';
         // ─────────────────────────────────────────────────────────────────
 
         // FIX (perf): open the pop-up window SYNCHRONOUSLY, in direct response
@@ -2391,32 +2569,58 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
             printWinHandle.document.write('<html><body style="font-family:sans-serif;padding:40px;color:#475569;">Preparing job card…</body></html>');
         }
 
-fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action: "registerJob" }, formSnapshot)) })
+        const requestBody = isBulk
+            ? { action: "registerJobsBulk", mobile, customerName, items: allItems }
+            : Object.assign({ action: "registerJob" }, formSnapshot);
+
+fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
 .then(res => res.json()).then(data => { 
     if(data.success) { 
-        // Stash the data needed to print a job card for this new ticket
-        lastRegisteredJob = Object.assign({ jobNum: data.jobNum, createdAt: new Date(), includeDiagnosticPage: includeDiagnosticPageChecked }, formSnapshot);
+        const successBanner = document.getElementById('registrationSuccessMessage');
+        const successText = document.getElementById('registrationSuccessText');
+        const printBtn = document.getElementById('printJobCardBtn');
+        const smsBadge = document.getElementById('smsStatusBadge');
+
+        if (isBulk) {
+            // Stash everything needed to reprint the whole bundle's job
+            // cards, keyed by the jobNum the server assigned to each item
+            // (returned in the same order the items were submitted in).
+            lastRegisteredBulk = {
+                mobile, customerName, batchId: data.batchId, createdAt: new Date(),
+                includeDiagnosticPage: includeDiagnosticPageChecked,
+                items: allItems.map((it, idx) => Object.assign({}, it, {
+                    jobNum: data.jobs && data.jobs[idx] ? data.jobs[idx].jobNum : null
+                }))
+            };
+            const jobNums = lastRegisteredBulk.items.map(it => `#${it.jobNum}`).join(', ');
+            successText.innerText = `🎉 ${allItems.length} jobs registered! Job numbers: ${jobNums}`;
+            printBtn.onclick = () => printBulkJobCards(printWinHandle);
+        } else {
+            // Stash the data needed to print a job card for this new ticket
+            lastRegisteredJob = Object.assign({ jobNum: data.jobNum, createdAt: new Date(), includeDiagnosticPage: includeDiagnosticPageChecked }, formSnapshot);
+            successText.innerText = '🎉 Job registered successfully!';
+            printBtn.onclick = () => printJobCard(printWinHandle);
+        }
 
         document.getElementById('registrationForm').reset(); 
+        resetBulkItemsUI();
         document.getElementById('lookupAlert').style.display = "none"; 
         document.getElementById('estimateRangeHint').innerText = "";
         
-        const successBanner = document.getElementById('registrationSuccessMessage');
         successBanner.style.display = "block";
 
         // ── SMS confirmation badge (animated) ────────────────────────────
-        const smsBadge = document.getElementById('smsStatusBadge');
         smsBadge.classList.remove('sms-badge-sending', 'sms-badge-success', 'sms-badge-fail', 'sms-badge-pop');
         if (data.sms) {
             smsBadge.style.display = 'inline-flex';
             void smsBadge.offsetWidth; // restart pop animation even on repeat registrations
             if (data.sms.success) {
                 smsBadge.classList.add('sms-badge-success', 'sms-badge-pop');
-                smsBadge.innerHTML = `✅ SMS sent to customer — Job #${data.jobNum}`;
+                smsBadge.innerHTML = isBulk ? `✅ SMS sent to customer — ${allItems.length} items` : `✅ SMS sent to customer — Job #${data.jobNum}`;
                 showToast('SMS confirmation sent to customer.', 'success');
             } else {
                 smsBadge.classList.add('sms-badge-fail', 'sms-badge-pop');
-                smsBadge.innerHTML = '⚠️ Job registered, but SMS could not be sent';
+                smsBadge.innerHTML = isBulk ? '⚠️ Jobs registered, but SMS could not be sent' : '⚠️ Job registered, but SMS could not be sent';
                 showToast('Job registered, but the confirmation SMS failed to send.', 'error');
             }
         } else {
@@ -2432,10 +2636,10 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action
         fetchLivePipelineData();
         // Optimistically bump the preview immediately after registration
         const badge = document.getElementById('nextJobNumPreview');
-        if (badge && badge.innerText !== '—') { badge.innerText = Number(badge.innerText) + 1; }
+        if (badge && badge.innerText !== '—') { badge.innerText = Number(badge.innerText) + (isBulk ? allItems.length : 1); }
 
         // Fill in the pop-up window we already opened, instead of opening a new one now.
-        printJobCard(printWinHandle);
+        if (isBulk) { printBulkJobCards(printWinHandle); } else { printJobCard(printWinHandle); }
     } else {
         if (printWinHandle) printWinHandle.close();
         showToast('Could not register job: ' + (data.error || 'Unknown error.'), "error");
@@ -2448,6 +2652,7 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action
         .finally(() => {
             regBtn.disabled = false;
             regBtn.innerHTML = regBtnOriginalHtml;
+            updateBulkModeUI();
         });
     });
 
@@ -2826,6 +3031,138 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action
         if (!lastRegisteredJob) { showToast('No recently registered job to print. Please register a job first.', 'info'); return; }
         openCardPrintWindow(normalizeJobForCard(lastRegisteredJob), existingWin);
     }
+
+    // ── Bulk job-card printing ───────────────────────────────────────────
+    // Prints every item from the most recently registered bundle (see
+    // registerJobsBulk / lastRegisteredBulk) as one print job — Customer
+    // Copy + Office Copy (+ optional Diagnostic page) per item, one after
+    // another, so the front desk gets the whole stack in a single print
+    // action instead of clicking "print" once per item.
+    function buildBulkJobCardHtml(jobs) {
+        const esc = (s) => (s || '').toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const termsListHtml = (COMPANY_INFO.terms || [])
+            .map(line => `<li>${esc(line)}</li>`)
+            .join('');
+
+        const sheetsHtml = jobs.map(job => {
+            const customerCopyMarkup = buildCardSheetMarkup(job, 'Customer Copy', esc, termsListHtml);
+            const officeCopyMarkup = buildCardSheetMarkup(job, 'Office Copy', esc, termsListHtml);
+            const diagnosticPageMarkup = job.includeDiagnosticPage ? buildDiagnosticPageMarkup(job, esc) : '';
+            return customerCopyMarkup + officeCopyMarkup + diagnosticPageMarkup;
+        }).join('');
+
+        // Same print stylesheet as the single-job card (buildJobCardHtml) —
+        // duplicated here rather than shared so a future edit to one print
+        // layout can't accidentally break the other.
+        return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Job Cards — ${jobs.length} items</title>
+<style>
+    @page { size: A5; margin: 9mm; }
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; margin: 0; padding: 0; }
+    .card-sheet { width: 100%; min-height: 100%; display: flex; flex-direction: column; border: 1px solid #1e293b; padding: 7mm; position: relative; }
+    .print-page { page-break-after: always; }
+    .print-page:last-of-type { page-break-after: auto; }
+    .copy-tag { position: absolute; top: 7mm; left: 7mm; background: #1e3a8a; color: #fff; font-size: 9px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; padding: 3px 10px; border-radius: 10px; }
+    .card-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1e3a8a; padding-bottom: 6px; margin-bottom: 8px; padding-top: 16px; }
+    .card-header-brand { display: flex; align-items: center; gap: 10px; }
+    .card-logo { height: 42px; width: auto; max-width: 120px; object-fit: contain; }
+    .company-name { font-size: 17px; font-weight: 800; color: #1e3a8a; margin: 0; }
+    .company-meta { font-size: 10px; color: #475569; line-height: 1.4; margin-top: 2px; }
+    .job-num-box { text-align: right; }
+    .job-num-box .label { font-size: 9px; text-transform: uppercase; font-weight: 700; color: #64748b; }
+    .job-num-box .num { font-size: 22px; font-weight: 800; color: #ea580c; }
+    .card-title { text-align: center; font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #1e293b; margin: 4px 0 10px 0; }
+    .qr-status-box { display: flex; align-items: center; gap: 10px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 7px 10px; margin-bottom: 10px; }
+    .qr-status-box .qr-img { flex-shrink: 0; display: block; background: #fff; padding: 3px; border-radius: 3px; }
+    .qr-status-text { font-size: 9.5px; color: #1e3a8a; line-height: 1.4; }
+    .qr-status-title { font-weight: 800; font-size: 11px; }
+    .qr-status-sub { color: #475569; margin-top: 1px; }
+    .field-row { display: flex; border-bottom: 1px dotted #cbd5e1; padding: 5px 0; font-size: 12px; }
+    .field-row .f-label { width: 38%; font-weight: 700; color: #475569; text-transform: uppercase; font-size: 10px; }
+    .field-row .f-value { width: 62%; font-weight: 600; color: #0f172a; }
+    .fault-box { margin-top: 8px; }
+    .fault-box .f-label { font-weight: 700; color: #475569; text-transform: uppercase; font-size: 10px; margin-bottom: 3px; }
+    .fault-box .f-value { font-size: 12px; border: 1px solid #cbd5e1; border-radius: 4px; padding: 8px; min-height: 12mm; background: #f8fafc; }
+    .signature-row { display: flex; justify-content: space-between; margin-top: 14px; gap: 14px; }
+    .signature-row .sig-box { width: 47%; text-align: center; color: #475569; }
+    .signature-row .sig-space { height: 22mm; border: 1px dashed #cbd5e1; border-radius: 4px; margin-bottom: 4px; }
+    .signature-row .sig-label { font-size: 10px; border-top: 1px solid #1e293b; padding-top: 4px; }
+    .card-footer { margin-top: auto; padding-top: 8px; border-top: 1px solid #cbd5e1; font-size: 8.5px; color: #64748b; line-height: 1.5; }
+    .card-footer .terms-title { font-weight: 700; text-transform: uppercase; color: #475569; margin-bottom: 3px; }
+    .card-footer ol { margin: 0; padding-left: 14px; }
+    .card-footer ol li { margin-bottom: 1px; }
+    .diag-sheet { padding: 6mm 7mm; }
+    .diag-sheet .copy-tag { background: #7c2d12; }
+    .diag-header-strip { display: flex; justify-content: center; align-items: baseline; border-bottom: 2px solid #1e3a8a; padding-bottom: 5px; margin-bottom: 6px; padding-top: 15px; }
+    .diag-job-num-label { font-size: 9px; text-transform: uppercase; font-weight: 700; color: #64748b; margin-right: 8px; }
+    .diag-job-num-value { font-size: 24px; font-weight: 800; color: #ea580c; letter-spacing: 0.5px; }
+    .diag-sheet .card-title { margin: 2px 0 7px 0; font-size: 12px; }
+    .diag-fields-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 10px; }
+    .diag-fields-grid .field-row { padding: 2px 0; font-size: 10.5px; }
+    .diag-fields-grid .f-label { font-size: 8.3px; }
+    .diag-fields-grid-bottom { margin-top: 4px; }
+    .diag-fault-box { margin-top: 2px; margin-bottom: 3px; }
+    .diag-fault-box .f-value { min-height: 6.5mm; padding: 4px 7px; font-size: 10.5px; }
+    .diag-table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 9.5px; }
+    .diag-table th { text-align: left; text-transform: uppercase; font-size: 7.3px; color: #64748b; font-weight: 700; border-bottom: 1.3px solid #1e293b; padding: 2px 4px; }
+    .diag-table td { border-bottom: 1px dotted #cbd5e1; padding: 2.3px 4px; vertical-align: middle; line-height: 1.15; }
+    .diag-table .diag-part-name { width: 34%; font-weight: 600; color: #0f172a; }
+    .diag-table th.diag-check-cell, .diag-table td.diag-check-cell { width: 8%; text-align: center; }
+    .diag-table .diag-remarks-cell { width: 42%; }
+    .diag-table td.diag-remarks-cell { border-bottom: 1px solid #94a3b8; }
+    .diag-box { display: inline-block; width: 8.5px; height: 8.5px; border: 1.2px solid #64748b; border-radius: 2px; }
+    .diag-rules-title { margin-top: 6px; font-size: 9px; font-weight: 700; text-transform: uppercase; color: #475569; border-bottom: 1px solid #cbd5e1; padding-bottom: 2px; }
+    .diag-rules-box { margin-top: 4px; display: grid; grid-template-columns: 1fr 1fr; column-gap: 10px; row-gap: 2.5px; }
+    .diag-rule-row { display: flex; align-items: flex-start; gap: 5px; font-size: 8.3px; color: #1e293b; }
+    .diag-rule-box { flex-shrink: 0; margin-top: 1px; display: inline-block; width: 8px; height: 8px; border: 1.2px solid #64748b; border-radius: 2px; }
+    .diag-rule-text { line-height: 1.15; }
+    .diag-notes-box { margin-top: 5px; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px 7px 1px; background: #f8fafc; }
+    .diag-notes-line { height: 4mm; border-bottom: 1px dotted #cbd5e1; }
+    .diag-notes-line:last-child { border-bottom: none; }
+    .diag-sheet .signature-row { margin-top: 8px; }
+    .diag-sheet .signature-row .sig-space { height: 10mm; }
+    .diag-sheet .signature-row .sig-label { font-size: 9px; padding-top: 3px; }
+    @media print {
+        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+</style>
+</head>
+<body>
+    ${sheetsHtml}
+    <script>window.onload = function(){ window.print(); };<\/script>
+</body>
+</html>`;
+    }
+
+    function openBulkCardPrintWindow(jobs, existingWin) {
+        const printWin = existingWin || window.open('', '_blank', 'width=620,height=880');
+        if (!printWin) { showToast('Pop-up blocked. Please allow pop-ups to print the job cards.', 'error', 6000); return; }
+        printWin.document.open();
+        printWin.document.write(buildBulkJobCardHtml(jobs));
+        printWin.document.close();
+    }
+
+    function printBulkJobCards(existingWin) {
+        if (!lastRegisteredBulk) { showToast('No recently registered bundle to print. Please register jobs first.', 'info'); return; }
+        const jobs = lastRegisteredBulk.items.map(it => normalizeJobForCard({
+            jobNum: it.jobNum,
+            customerName: lastRegisteredBulk.customerName,
+            mobile: lastRegisteredBulk.mobile,
+            itemType: it.itemType,
+            model: it.model,
+            serial: it.serial,
+            fault: it.fault,
+            estimatedPrice: it.estimatedPrice,
+            createdAt: lastRegisteredBulk.createdAt,
+            includeDiagnosticPage: lastRegisteredBulk.includeDiagnosticPage
+        }));
+        openBulkCardPrintWindow(jobs, existingWin);
+    }
+    // ─────────────────────────────────────────────────────────────────────
 
     // Reprint a job card for any existing job, looked up from the live pipeline cache.
     // Opens its own window synchronously since this is called directly from a click.

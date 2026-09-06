@@ -2883,7 +2883,7 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
 
     // Builds the full print document containing TWO copies of the job card —
     // a Customer Copy and an Office Copy — so a single print action outputs both pages.
-    function buildJobCardHtml(job) {
+    function buildJobCardHtml(job, autoPrint = true) {
         const esc = (s) => (s || '').toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
         const termsListHtml = (COMPANY_INFO.terms || [])
@@ -3012,7 +3012,27 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
     ${customerCopyMarkup}
     ${officeCopyMarkup}
     ${diagnosticPageMarkup}
-    <script>window.onload = function(){ window.print(); };<\/script>
+    ${autoPrint ? '<script>window.onload = function(){ window.print(); };<\/script>' : `
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"><\/script>
+    <script>
+        // Called from the main window's "Save as PDF" button. Renders this
+        // whole document (both A5 copies, respecting the page breaks) into a
+        // real PDF and downloads it — no print dialog needed. Returns false
+        // if html2pdf failed to load (e.g. the CDN was blocked), so the
+        // caller can fall back to window.print().
+        window.exportPdf = function (filename) {
+            if (typeof html2pdf === 'undefined') return false;
+            html2pdf().set({
+                filename: filename || 'job-card.pdf',
+                margin: 0,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a5', orientation: 'portrait' },
+                pagebreak: { mode: ['css', 'legacy'] }
+            }).from(document.body).save();
+            return true;
+        };
+    <\/script>`}
 </body>
 </html>`;
     }
@@ -3165,7 +3185,8 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
     // ─────────────────────────────────────────────────────────────────────
 
     // Reprint a job card for any existing job, looked up from the live pipeline cache.
-    // Opens its own window synchronously since this is called directly from a click.
+    // Shows the Print/PDF/WhatsApp choice popup first — the job card window is
+    // only opened once the user actually picks Print or Save as PDF.
     function reprintJobCard(jobNum) {
         const job = jobsCacheArray.find(j => j.jobNum == jobNum);
         if (!job) { showToast('Could not find that job in the current data. Try syncing first.', 'error'); return; }
@@ -3173,7 +3194,26 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
         // checkbox, so ask again here — cheap confirm() beats silently
         // dropping the 3rd page (or always forcing it) on every reprint.
         const includeDiagnostic = window.confirm('Include the Diagnostic Order / Parts Checking page (3rd A5 page) in this reprint?');
-        openCardPrintWindow(normalizeJobForCard(Object.assign({}, job, { includeDiagnosticPage: includeDiagnostic })));
+        const normalizedJob = normalizeJobForCard(Object.assign({}, job, { includeDiagnosticPage: includeDiagnostic }));
+
+        openActionChoice({
+            icon: '🪪',
+            title: `Job Card #${normalizedJob.jobNum}`,
+            subtitle: 'Choose how you\u2019d like to deliver this job card',
+            pdfFilename: `Job-Card-${normalizedJob.jobNum}.pdf`,
+            // Called only when the user clicks Print or Save as PDF — still
+            // inside that click, so popup blockers allow the window.open().
+            openAndBuild: function () {
+                const win = window.open('', '_blank', 'width=620,height=880');
+                if (!win) return null;
+                win.document.open();
+                win.document.write(buildJobCardHtml(normalizedJob, false));
+                win.document.close();
+                return win;
+            },
+            whatsappNumber: normalizedJob.mobile,
+            whatsappMessage: `Hello${normalizedJob.customerName ? ' ' + normalizedJob.customerName : ''}, here is your job card #${normalizedJob.jobNum}${normalizedJob.itemType ? ' (' + normalizedJob.itemType + (normalizedJob.model ? ' ' + normalizedJob.model : '') + ')' : ''}. - ${COMPANY_INFO.name}`
+        });
     }
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -3791,15 +3831,6 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
         const calc = recalcInvoiceTotals();
         if (calc.items.length === 0) { showToast('Add at least one line item first.', 'error'); return; }
 
-        // Popup blockers only trust window.open() when it happens synchronously
-        // inside the click handler — not after an awaited fetch resolves. So we
-        // open a blank tab right now (still inside the click), and write the
-        // actual invoice HTML into it later, once the save response comes back.
-        const printWin = printAfter ? window.open('', '_blank') : null;
-        if (printAfter && !printWin) {
-            showToast('Popup blocked — please allow popups for this site, then try Save & Print again.', 'error');
-        }
-
         const techLabel = document.getElementById('loggedInTechName') ? document.getElementById('loggedInTechName').innerText : 'Admin';
         const btn = printAfter ? document.getElementById('invSavePrintBtn') : document.getElementById('invSaveBtn');
         const originalLabel = btn.innerText;
@@ -3825,7 +3856,6 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
                 btn.disabled = false; btn.innerText = originalLabel;
                 if (!data.success) {
                     showToast(data.error || 'Failed to save invoice.', 'error');
-                    if (printWin && !printWin.closed) printWin.close();
                     return;
                 }
                 showToast(`Invoice #${data.invoiceNum} saved.`, 'success');
@@ -3851,18 +3881,18 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
                 }
 
                 if (printAfter) {
-                    printInvoiceWindow(Object.assign({}, payload, {
+                    presentInvoiceChoice(Object.assign({}, payload, {
                         invoiceNum: data.invoiceNum, subtotal: data.subtotal !== undefined ? data.subtotal : calc.subtotal,
                         total: data.total !== undefined ? data.total : calc.total,
                         balance: data.balance !== undefined ? data.balance : calc.balance,
                         customerName: document.getElementById('invCustomerLabel').innerText.replace('👤 ', ''),
                         mobile: document.getElementById('invMobileLabel').innerText.replace('📞 ', '')
-                    }), printWin);
+                    }));
                 } else {
                     closeInvoiceModal();
                 }
             })
-            .catch(() => { btn.disabled = false; btn.innerText = originalLabel; showToast('Network error saving invoice.', 'error'); if (printWin && !printWin.closed) printWin.close(); });
+            .catch(() => { btn.disabled = false; btn.innerText = originalLabel; showToast('Network error saving invoice.', 'error'); });
     }
 
     // Standard warranty terms printed on every invoice. Edit freely.
@@ -3874,7 +3904,7 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
         "PLEASE PRODUCE THE INVOICE FOR WARRANTY CLAIMS."
     ];
 
-    function printInvoiceWindow(inv, existingWin) {
+    function printInvoiceWindow(inv, existingWin, autoPrint = true) {
         const esc = (s) => (s === null || s === undefined) ? '' : String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         const money = (n) => Number(n || 0).toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -4024,7 +4054,26 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
             <div class="brand-footer">Software Solution by SAP COMPUTERS (PVT) Ltd Software Team</div>
         </div>
     </div>
-    <script>window.onload = function(){ window.print(); };<\/script>
+    ${autoPrint ? '<script>window.onload = function(){ window.print(); };<\/script>' : `
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"><\/script>
+    <script>
+        // Called from the main window's "Save as PDF" button. Renders this
+        // invoice sheet into a real PDF and downloads it — no print dialog
+        // needed. Returns false if html2pdf failed to load (e.g. the CDN was
+        // blocked), so the caller can fall back to window.print().
+        window.exportPdf = function (filename) {
+            if (typeof html2pdf === 'undefined') return false;
+            html2pdf().set({
+                filename: filename || 'invoice.pdf',
+                margin: 0,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a5', orientation: 'portrait' },
+                pagebreak: { mode: ['css', 'legacy'] }
+            }).from(document.body).save();
+            return true;
+        };
+    <\/script>`}
 </body></html>`;
 
         // If a window handle was already opened synchronously by the caller
@@ -4037,10 +4086,28 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
         const win = (existingWin && !existingWin.closed) ? existingWin : window.open('', '_blank');
         if (!win) {
             showToast('Popup blocked — please allow popups for this site and try again.', 'error');
-            return;
+            return null;
         }
         win.document.write(html);
         win.document.close();
+        return win;
+    }
+
+    // Shows the Print / Save as PDF / Send via WhatsApp choice popup for an
+    // invoice. The invoice window itself is only opened once the user picks
+    // Print or Save as PDF — see openAndBuild below. Used by both the
+    // Invoices tab's "Print" link and the "Save & Print" flow in
+    // saveInvoiceSubmit below.
+    function presentInvoiceChoice(inv) {
+        openActionChoice({
+            icon: '🧾',
+            title: `Invoice #${inv.invoiceNum || ''}`,
+            subtitle: 'Choose how you\u2019d like to deliver this invoice',
+            pdfFilename: `Invoice-${inv.invoiceNum || ''}.pdf`,
+            openAndBuild: function () { return printInvoiceWindow(inv, null, false); },
+            whatsappNumber: inv.mobile,
+            whatsappMessage: `Hello ${inv.customerName || ''}, your invoice #${inv.invoiceNum || ''} (Job #${inv.jobNum || ''}) totals Rs. ${Number(inv.total || 0).toFixed(2)}. Thank you! - ${COMPANY_INFO.name}`
+        });
     }
 
     function fetchInvoicesList() {
@@ -4134,7 +4201,7 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
                 <td><span class="invoice-status-tag invoice-status-${inv.paymentStatus}">${inv.paymentStatus}</span>${inv.paymentMethod ? `<br><span style="font-size:11px; color:#64748b;">${inv.paymentMethod}</span>` : ''}</td>
                 <td>
                     <a class="history-link" onclick="openInvoiceModal(${inv.jobNum}, ${JSON.stringify(inv.customerName || '').replace(/"/g, '&quot;')}, ${JSON.stringify(inv.mobile || '').replace(/"/g, '&quot;')}, ${JSON.stringify(inv.itemType || '').replace(/"/g, '&quot;')}, ${JSON.stringify(inv.model || '').replace(/"/g, '&quot;')})">✏️ Edit</a><br>
-                    <a class="history-link" style="color:#1e3a8a;" onclick="printInvoiceWindow(${JSON.stringify(inv).replace(/"/g, '&quot;')})">🖨️ Print</a>
+                    <a class="history-link" style="color:#1e3a8a;" onclick="presentInvoiceChoice(${JSON.stringify(inv).replace(/"/g, '&quot;')})">🖨️ Print</a>
                 </td>
             </tr>
         `).join('');
@@ -4675,6 +4742,183 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
     }
     // ─────────────────────────────────────────────────────────────────────
 </script>
+<!-- ══════════════════════════════════════════════════════════════════════
+     🖨️ PRINT / SAVE AS PDF / WHATSAPP CHOICE POPUP — self-contained add-on
+     Used by "Reprint Card" and the Invoice "Save & Print" / "Print" actions.
+     Same pop-in card treatment as the birthday snippet below, but with a
+     dark, blurred backdrop instead of a transparent one.
+     ══════════════════════════════════════════════════════════════════════ -->
+<style>
+    #actionChoiceOverlay {
+        position: fixed; inset: 0; z-index: 20000; display: none;
+        align-items: center; justify-content: center;
+        background: rgba(15, 23, 42, 0.55);
+        backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    }
+    #actionChoiceOverlay.show { display: flex; }
+
+    .action-choice-card {
+        position: relative;
+        background: linear-gradient(135deg, #1e3a8a 0%, #4338ca 55%, #7c3aed 100%);
+        padding: 34px 28px 26px; border-radius: 22px; text-align: center;
+        max-width: 90vw; width: 380px; box-shadow: 0 25px 70px rgba(0,0,0,0.45);
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        animation: acPopIn 0.4s cubic-bezier(.34,1.56,.64,1);
+    }
+    @keyframes acPopIn { 0% { transform: scale(0.4) translateY(40px); opacity: 0; } 100% { transform: scale(1) translateY(0); opacity: 1; } }
+
+    .action-choice-close-x {
+        position: absolute; top: 12px; right: 16px; font-size: 20px; font-weight: 900;
+        color: rgba(255,255,255,0.7); cursor: pointer; line-height: 1;
+    }
+    .action-choice-close-x:hover { color: #fff; }
+
+    .action-choice-icon { font-size: 38px; margin-bottom: 6px; }
+    .action-choice-title { font-size: 19px; font-weight: 800; color: #fff; margin: 2px 0 4px; text-shadow: 0 1px 0 rgba(0,0,0,0.15); }
+    .action-choice-sub { font-size: 12.5px; color: rgba(255,255,255,0.85); font-weight: 600; margin-bottom: 22px; }
+
+    .action-choice-btn {
+        display: flex; align-items: center; gap: 12px; width: 100%;
+        background: rgba(255,255,255,0.96); border: none; padding: 13px 16px;
+        border-radius: 12px; font-weight: 700; font-size: 14px; color: #1e293b;
+        cursor: pointer; margin-bottom: 10px; text-align: left;
+        transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+    }
+    .action-choice-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(0,0,0,0.25); background: #fff; }
+    .action-choice-btn:active { transform: translateY(0); }
+    .action-choice-btn .ac-emoji { font-size: 19px; flex-shrink: 0; }
+    .action-choice-btn .ac-btn-sub { display: block; font-size: 10.5px; font-weight: 600; color: #64748b; margin-top: 1px; }
+
+    .action-choice-cancel {
+        margin-top: 2px; background: transparent; border: none; color: rgba(255,255,255,0.8);
+        font-size: 11.5px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;
+        cursor: pointer; padding: 6px;
+    }
+    .action-choice-cancel:hover { color: #fff; }
+</style>
+
+<div id="actionChoiceOverlay">
+    <div class="action-choice-card">
+        <span class="action-choice-close-x" onclick="closeActionChoice()">×</span>
+        <div class="action-choice-icon" id="acIcon">🧾</div>
+        <div class="action-choice-title" id="acTitle">Ready</div>
+        <div class="action-choice-sub" id="acSub">Choose how you'd like to proceed</div>
+        <button type="button" class="action-choice-btn" onclick="handleActionChoice('print')">
+            <span class="ac-emoji">🖨️</span>
+            <span>Print<span class="ac-btn-sub">Send straight to your printer</span></span>
+        </button>
+        <button type="button" class="action-choice-btn" onclick="handleActionChoice('pdf')">
+            <span class="ac-emoji">📄</span>
+            <span>Save as PDF<span class="ac-btn-sub">Downloads a PDF file automatically</span></span>
+        </button>
+        <button type="button" class="action-choice-btn" onclick="handleActionChoice('whatsapp')">
+            <span class="ac-emoji">💬</span>
+            <span>Send via WhatsApp<span class="ac-btn-sub">Opens a WhatsApp chat with the customer</span></span>
+        </button>
+        <button type="button" class="action-choice-cancel" onclick="closeActionChoice()">Cancel</button>
+    </div>
+</div>
+
+<script>
+    // Generic Print / Save-as-PDF / WhatsApp chooser, used by both the
+    // Invoice and Reprint Card flows.
+    //
+    // The popup itself never opens a window — it just collects the user's
+    // choice. Only once they click "Print" or "Save as PDF" do we call
+    // opts.openAndBuild() (still synchronously inside that click, so popup
+    // blockers allow it) to open the tab and write the content into it.
+    //
+    // Usage:
+    //   openActionChoice({
+    //       icon, title, subtitle,
+    //       openAndBuild: () => { /* window.open(), write, close, return the window */ },
+    //       pdfFilename, whatsappNumber, whatsappMessage
+    //   });
+    var _acState = null;
+
+    function openActionChoice(opts) {
+        _acState = opts || {};
+        document.getElementById('acIcon').innerText = _acState.icon || '🧾';
+        document.getElementById('acTitle').innerText = _acState.title || 'Ready';
+        document.getElementById('acSub').innerText = _acState.subtitle || "Choose how you'd like to proceed";
+        document.getElementById('actionChoiceOverlay').classList.add('show');
+    }
+
+    function closeActionChoice() {
+        document.getElementById('actionChoiceOverlay').classList.remove('show');
+        _acState = null;
+    }
+
+    // Sri Lanka-friendly WhatsApp number formatting: strips everything but
+    // digits and swaps a leading 0 for the 94 country code. Numbers already
+    // given with a country code pass through untouched.
+    function formatWhatsAppNumber(raw) {
+        var digits = (raw || '').toString().replace(/[^0-9]/g, '');
+        if (!digits) return '';
+        if (digits.charAt(0) === '0') digits = '94' + digits.slice(1);
+        return digits;
+    }
+
+    // Opens the target window (via the state's openAndBuild) and waits for
+    // it to fully finish loading — including any CDN scripts it needs, like
+    // html2pdf — before running the follow-up action on it.
+    function runOnLoadedPrintWindow(state, afterLoad) {
+        var win = state.openAndBuild();
+        if (!win) {
+            showToast('Pop-up blocked. Please allow pop-ups for this site and try again.', 'error', 6000);
+            return;
+        }
+        if (win.document.readyState === 'complete') {
+            afterLoad(win);
+        } else {
+            win.addEventListener('load', function () { afterLoad(win); });
+        }
+    }
+
+    function handleActionChoice(kind) {
+        if (!_acState) return;
+        var state = _acState;
+        document.getElementById('actionChoiceOverlay').classList.remove('show');
+        _acState = null;
+
+        if (kind === 'print') {
+            runOnLoadedPrintWindow(state, function (win) {
+                win.focus();
+                win.print();
+            });
+        } else if (kind === 'pdf') {
+            runOnLoadedPrintWindow(state, function (win) {
+                var exported = false;
+                try {
+                    exported = typeof win.exportPdf === 'function' && win.exportPdf(state.pdfFilename);
+                } catch (e) {
+                    exported = false;
+                }
+                if (exported) {
+                    showToast('Generating PDF — your download will start shortly.', 'success');
+                } else {
+                    // html2pdf didn't load (e.g. the CDN was blocked) — fall
+                    // back to the browser's own print dialog, where "Save as
+                    // PDF" is available as a destination.
+                    showToast('Couldn\u2019t auto-generate the PDF — choose "Save as PDF" in the print dialog instead.', 'info', 6000);
+                    win.focus();
+                    win.print();
+                }
+            });
+        } else if (kind === 'whatsapp') {
+            var number = formatWhatsAppNumber(state.whatsappNumber);
+            var text = encodeURIComponent(state.whatsappMessage || '');
+            if (number) {
+                window.open('https://wa.me/' + number + '?text=' + text, '_blank');
+            } else {
+                window.open('https://wa.me/?text=' + text, '_blank');
+                showToast('No customer mobile number on file — pick a chat manually in WhatsApp.', 'info', 5500);
+            }
+        }
+    }
+</script>
+<!-- ══════════════════════ END PRINT / PDF / WHATSAPP CHOICE POPUP ══════════════════════ -->
+
 <!-- ══════════════════════════════════════════════════════════════════════
      🎂 TECHNICIAN BIRTHDAY CELEBRATION — self-contained add-on
      Paste this whole block just before </body> in any portal file.

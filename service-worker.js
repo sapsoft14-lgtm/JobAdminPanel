@@ -8,7 +8,7 @@
 // the page can still open (showing cached UI) if the network briefly drops.
 const CACHE_NAME = "sap-admin-shell-v1";
 const APP_SHELL = [
-  "./admin-control-center.html",
+  "./index.html",
   "./manifest.json",
   "./icon-192.png",
   "./icon-512.png",

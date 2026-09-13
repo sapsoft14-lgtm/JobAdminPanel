@@ -2,7 +2,7 @@
   "name": "SAP Admin Control Center",
   "short_name": "SAP Admin",
   "description": "Job registry, pipeline dashboard, invoices and technician management for SAP Computers.",
-  "start_url": "./admin-control-center.html",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",

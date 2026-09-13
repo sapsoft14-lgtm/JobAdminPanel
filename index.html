@@ -2,8 +2,21 @@
 <html lang="en">
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Admin Control Center - SAP</title>
+
+    <!-- ── PWA / "Install app" support ───────────────────────────────────
+         manifest.json + service-worker.js + icon-192.png + icon-512.png
+         must be deployed alongside this file (same folder, same origin) —
+         see the note at the end of the file for hosting instructions. -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1e3a8a">
+    <link rel="icon" href="icon-192.png" sizes="192x192">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SAP Admin">
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f1f5f9; margin: 0; padding: 20px; color: #1e293b; }
         
@@ -19,6 +32,16 @@
             .dashboard-container { grid-template-columns: 1fr; gap: 20px; }
         }
 
+        /* ── Mobile touch-friendliness ───────────────────────────────────
+           16px stops iOS Safari from auto-zooming the page when an input
+           gets focus; taller inputs/buttons give thumbs a bigger target. */
+        @media (max-width: 700px) {
+            input, select, textarea { font-size: 16px; padding: 11px 10px; }
+            button, .admin-tab-btn, .btn-blue, .btn-orange, .btn-search { min-height: 42px; }
+            .card { padding: 16px; border-radius: 10px; }
+            h2 { font-size: 15px; }
+        }
+
         .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.04); border: 1px solid #e2e8f0; margin-bottom: 20px; }
         h2 { margin-top: 0; color: #1e3a8a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 17px; }
         .form-group { display: flex; flex-direction: column; margin-bottom: 12px; position: relative; }
@@ -31,6 +54,21 @@
         @media (max-width: 480px) {
             .row { flex-direction: column; gap: 0; }
         }
+
+        /* ── "More options" collapsible (registration form) ─────────────────
+           Keeps optional/secondary controls (intake photos, bulk items,
+           print settings) out of the way by default so the Register button
+           sits right after the essential fields — no long scroll needed. */
+        .reg-more-options { border: 1px dashed #cbd5e1; border-radius: 8px; margin: 10px 0 12px; background: #f8fafc; }
+        .reg-more-options summary { list-style: none; cursor: pointer; padding: 10px 12px; font-weight: 700; font-size: 12.5px; color: #1e3a8a; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; user-select: none; }
+        .reg-more-options summary::-webkit-details-marker { display: none; }
+        .reg-more-options summary::before { content: '▸'; margin-right: 2px; transition: transform .15s; display: inline-block; }
+        .reg-more-options[open] summary::before { transform: rotate(90deg); }
+        .reg-more-options-hint { font-weight: 400; color: #94a3b8; font-size: 11px; }
+        .reg-more-options-badge { margin-left: auto; background: #1e3a8a; color: white; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+        .reg-more-options-body { padding: 2px 12px 12px; }
+        body.dark-mode .reg-more-options { background: #1e293b; border-color: #334155; }
+        body.dark-mode .reg-more-options summary { color: #93c5fd; }
         
         .inline-search-group { display: flex; gap: 8px; }
         .btn-search { background-color: #1e3a8a; color: white; border: none; padding: 0 14px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px; white-space: nowrap; }
@@ -166,11 +204,18 @@
         .notif-panel { position: absolute; top: calc(100% + 8px); right: 0; width: 340px; max-height: 420px; overflow-y: auto; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); z-index: 5000; }
         .notif-panel-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid #f1f5f9; font-weight: bold; font-size: 12px; color: #1e3a8a; position: sticky; top: 0; background: white; }
         .notif-panel-header button { background: #1e3a8a; color: white; border: none; padding: 4px 10px; border-radius: 5px; font-size: 11px; cursor: pointer; font-weight: bold; }
-        .notif-item { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; font-size: 12px; display: flex; gap: 9px; align-items: flex-start; }
+        .notif-item { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; font-size: 12px; display: flex; gap: 9px; align-items: flex-start; cursor: pointer; transition: background-color .15s; }
+        .notif-item:hover { background-color: #f8fafc; }
         .notif-item.unread { background: #eff6ff; }
+        .notif-item.unread:hover { background: #dbeafe; }
         .notif-item .notif-meta { display: flex; justify-content: space-between; color: #94a3b8; font-size: 10px; margin-bottom: 3px; }
         .notif-item .notif-note { color: #64748b; margin-top: 3px; }
         .notif-empty { text-align: center; color: #94a3b8; font-size: 12px; padding: 22px 10px; }
+        /* NEW: "View more" pagination footer for the notification panel */
+        .notif-view-more-row { padding: 10px 12px; text-align: center; }
+        .btn-notif-view-more { background: #f8fafc; color: #1e3a8a; border: 1px solid #cbd5e1; padding: 7px 14px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; }
+        .btn-notif-view-more:hover { background: #eff6ff; }
+        .btn-notif-view-more:disabled { opacity: 0.6; cursor: not-allowed; }
         /* NEW: profile-photo avatar per notification, same lookup
            (adminProfilePicsCache) already used for the activity feed —
            falls back to initials when no photo is on file. */
@@ -215,6 +260,10 @@
 
         /* ── Admin Tab Nav (Pipeline / Invoices) ─────────────────────────── */
         .admin-tab-nav { max-width: 1700px; margin: 0 auto 18px; display: flex; gap: 8px; }
+        @media (max-width: 700px) {
+            .admin-tab-nav { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; margin-bottom: 14px; scrollbar-width: thin; }
+            .admin-tab-btn { flex-shrink: 0; }
+        }
         .admin-tab-btn { background: white; border: 1px solid #e2e8f0; color: #475569; padding: 9px 18px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; transition: all .15s; }
         .admin-tab-btn:hover { background: #f8fafc; }
         .admin-tab-btn.active { background: #1e3a8a; color: white; border-color: #1e3a8a; }
@@ -299,7 +348,11 @@
         .login-hint { font-size: 11px; color: #94a3b8; text-align: center; margin-top: 12px; }
 
         /* ── Session Bar ────────────────────────────────────────────────── */
-        .session-bar { display: flex; justify-content: space-between; align-items: center; background: white; padding: 10px 16px; border-radius: 8px; margin: 0 auto 16px auto; max-width: 1700px; border: 1px solid #e2e8f0; font-size: 13px; font-weight: 600; }
+        .session-bar { display: flex; justify-content: space-between; align-items: center; background: white; padding: 10px 16px; border-radius: 8px; margin: 0 auto 16px auto; max-width: 1700px; border: 1px solid #e2e8f0; font-size: 13px; font-weight: 600; flex-wrap: wrap; gap: 8px; }
+        @media (max-width: 700px) {
+            .session-bar { font-size: 12px; }
+            .session-bar > div { flex-wrap: wrap; gap: 6px !important; }
+        }
 
         /* ── Profile settings (NEW v11.10) ──────────────────────────────── */
         .btn-profile-avatar { background: #eff6ff; border: 1px solid #93c5fd; padding: 0; border-radius: 50%; cursor: pointer; width: 34px; height: 34px; flex-shrink: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; }
@@ -550,6 +603,7 @@ body.dark-mode .bulk-item-row-header { color: #c7d2fe; }
 <div class="session-bar" id="sessionBar" style="display:none;">
     <span>👤 Logged in as <strong id="loggedInTechName">—</strong></span>
     <div style="display:flex; align-items:center; gap:10px;">
+        <button type="button" id="pwaInstallBtn" onclick="triggerPwaInstall()" style="display:none; align-items:center; gap:6px; background:#1e3a8a; color:white; border:none; padding:7px 12px; border-radius:6px; cursor:pointer; font-weight:bold; font-size:13px;">⬇️ Install App</button>
         <div class="theme-toggle-wrap">
             <label class="switch">
                 <input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode(this.checked)">
@@ -689,21 +743,32 @@ body.dark-mode .bulk-item-row-header { color: #c7d2fe; }
                     <div class="form-group"><label>Tech</label><select id="tech"><option value="">Select Person</option><option value="WM Nayanajijth">WM Nayanajijth</option><option value="Supun Samarasinghe">Supun Samarasinghe</option><option value="Isuru Lakshitha">Isuru Lakshitha</option><option value="Ayesh Harshana">Ayesh Harshana</option><option value="Dilka Dulakshana">Dilka Dulakshana</option><option value="Front Officer">Front Officer</option><option value="Chamith Sandeepa">Chamith Sandeepa</option><option value="Pradeep Kaushalya">Pradeep Kaushalya</option></select></div>
                 </div>
 
-                <!-- ── Bulk registration: extra items for the SAME customer ──────────
-                     Mobile/Client Name above are entered once and reused for every
-                     item added here. Each item still gets registered as its own
-                     unique job number. -->
-                <div id="bulkItemsContainer"></div>
-                <button type="button" class="add-bulk-item-btn" onclick="addBulkItemRow()">📦 + Add Another Item (Same Customer)</button>
-                <div class="bulk-mode-hint" id="bulkModeHint" style="display:none;">Registering multiple items for this customer — each will get its own job number.</div>
+                <details class="reg-more-options" id="regMoreOptionsDetails">
+                    <summary>⚙️ More options <span class="reg-more-options-hint">— photos, extra items, print settings</span><span class="reg-more-options-badge" id="regMoreOptionsBadge" style="display:none;"></span></summary>
+                    <div class="reg-more-options-body">
+                        <div class="form-group">
+                            <label>Intake Photos <span style="font-weight:400; color:#94a3b8;">— optional, saved to this job's history</span></label>
+                            <input type="file" accept="image/*" multiple id="regPhotosInput" onchange="handleRegPhotosSelected(event)">
+                            <div id="regPhotosPreview" style="margin-top:4px;"></div>
+                        </div>
 
-                <div class="form-group" style="display:flex; align-items:center; gap:2px; background:ff4444; border:1px solid ff4444; border-radius:5px; padding:5px 8px; margin-top:2px;">
-                    <input type="checkbox" id="includeDiagnosticPage" checked style="width:13px; height:13px; margin:0; flex-shrink:0; cursor:pointer; accent-color:#1e3a8a;">
-                    <label for="includeDiagnosticPage" style="margin:0; font-weight:600; font-size:9px; color:b0e2ff; cursor:pointer; line-height:1.25;">
-                        🔧 Print 3rd page — Diagnostic Order &amp; Parts Checking
-                        <span style="display:inline-flex; font-weight:400; color:#0369a1; font-size:7px; margin-top:1px; margin-left:10px;">Auto-builds a parts checklist matched to the item category.</span>
-                    </label>
-                </div>
+                        <!-- ── Bulk registration: extra items for the SAME customer ──────────
+                             Mobile/Client Name above are entered once and reused for every
+                             item added here. Each item still gets registered as its own
+                             unique job number. -->
+                        <div id="bulkItemsContainer"></div>
+                        <button type="button" class="add-bulk-item-btn" onclick="addBulkItemRow()">📦 + Add Another Item (Same Customer)</button>
+                        <div class="bulk-mode-hint" id="bulkModeHint" style="display:none;">Registering multiple items for this customer — each will get its own job number.</div>
+
+                        <div class="form-group" style="display:flex; align-items:center; gap:2px; background:ff4444; border:1px solid ff4444; border-radius:5px; padding:5px 8px; margin-top:2px;">
+                            <input type="checkbox" id="includeDiagnosticPage" checked style="width:13px; height:13px; margin:0; flex-shrink:0; cursor:pointer; accent-color:#1e3a8a;">
+                            <label for="includeDiagnosticPage" style="margin:0; font-weight:600; font-size:9px; color:b0e2ff; cursor:pointer; line-height:1.25;">
+                                🔧 Print 3rd page — Diagnostic Order &amp; Parts Checking
+                                <span style="display:inline-flex; font-weight:400; color:#0369a1; font-size:7px; margin-top:1px; margin-left:10px;">Auto-builds a parts checklist matched to the item category.</span>
+                            </label>
+                        </div>
+                    </div>
+                </details>
                 <button type="submit" id="registerTicketBtn" class="btn-blue">Register Ticket</button>
             </form>
         </div>
@@ -755,6 +820,12 @@ body.dark-mode .bulk-item-row-header { color: #c7d2fe; }
                         <div class="form-group"><label>Fault Description</label><input type="text" id="oFault" placeholder="Leave blank to keep unchanged"></div>
                     </div>
                     <div class="form-group"><label>Handover Date &amp; Time</label><input type="datetime-local" id="oHandoverTime" step="1"></div>
+                </div>
+
+                <div class="form-group">
+                    <label>Attach Photos <span style="font-weight:400; color:#94a3b8;">— optional, saved to job history</span></label>
+                    <input type="file" accept="image/*" multiple id="oPhotosInput" onchange="handleOverridePhotosSelected(event)">
+                    <div id="oPhotosPreview" style="margin-top:4px;"></div>
                 </div>
 
                 <div class="form-group">
@@ -1341,6 +1412,71 @@ body.dark-mode .bulk-item-row-header { color: #c7d2fe; }
         return '';
     }
 
+    // ── Photo attachments: shared helpers for any {base64, name} picker ──
+    // Renders a small thumbnail strip with a "×" remove button on each
+    // thumb. Used by both the Job Registry's "Intake Photos" picker and the
+    // Modify Overrides panel's "Attach Photos" picker below.
+    function renderPhotoThumbs(containerId, photos, removeFnName) {
+        const wrap = document.getElementById(containerId);
+        if (!wrap) return;
+        wrap.innerHTML = photos.map((p, idx) => `
+            <div style="position:relative; display:inline-block; margin:4px 6px 0 0;">
+                <img src="${p.base64}" style="width:52px; height:52px; object-fit:cover; border-radius:6px; border:1px solid #cbd5e1; display:block;">
+                <span onclick="${removeFnName}(${idx})" role="button" tabindex="0" title="Remove photo" style="position:absolute; top:-6px; right:-6px; background:#ef4444; color:white; border-radius:50%; width:16px; height:16px; font-size:10px; line-height:16px; text-align:center; cursor:pointer; font-weight:bold;">×</span>
+            </div>`).join('');
+    }
+    function readImagesToBase64(fileList, onEachReady) {
+        Array.from(fileList || []).forEach((file) => {
+            if (!file.type.startsWith('image/')) return;
+            const reader = new FileReader();
+            reader.onload = function(e) { onEachReady({ base64: e.target.result, name: file.name }); };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // ── Job Registry: intake photos (attached to the primary item) ───────
+    let selectedRegPhotos = []; // {base64, name}[]
+    function handleRegPhotosSelected(event) {
+        readImagesToBase64(event.target.files, (photo) => {
+            selectedRegPhotos.push(photo);
+            renderPhotoThumbs('regPhotosPreview', selectedRegPhotos, 'removeRegPhoto');
+            updateRegMoreOptionsBadge();
+        });
+        event.target.value = "";
+    }
+    function removeRegPhoto(idx) {
+        selectedRegPhotos.splice(idx, 1);
+        renderPhotoThumbs('regPhotosPreview', selectedRegPhotos, 'removeRegPhoto');
+        updateRegMoreOptionsBadge();
+    }
+    function clearRegPhotos() {
+        selectedRegPhotos = [];
+        const input = document.getElementById('regPhotosInput');
+        if (input) input.value = "";
+        renderPhotoThumbs('regPhotosPreview', selectedRegPhotos, 'removeRegPhoto');
+        updateRegMoreOptionsBadge();
+    }
+
+    // ── Modify Overrides panel: photos attached to the override entry ────
+    let selectedOverridePhotos = []; // {base64, name}[]
+    function handleOverridePhotosSelected(event) {
+        readImagesToBase64(event.target.files, (photo) => {
+            selectedOverridePhotos.push(photo);
+            renderPhotoThumbs('oPhotosPreview', selectedOverridePhotos, 'removeOverridePhoto');
+        });
+        event.target.value = "";
+    }
+    function removeOverridePhoto(idx) {
+        selectedOverridePhotos.splice(idx, 1);
+        renderPhotoThumbs('oPhotosPreview', selectedOverridePhotos, 'removeOverridePhoto');
+    }
+    function clearOverridePhotos() {
+        selectedOverridePhotos = [];
+        const input = document.getElementById('oPhotosInput');
+        if (input) input.value = "";
+        renderPhotoThumbs('oPhotosPreview', selectedOverridePhotos, 'removeOverridePhoto');
+    }
+
     // ── Bulk job registration: extra item rows ──────────────────────────
     // Lets the front desk register several accessories from ONE customer in
     // one submit — mobile/customer name are typed once (in the main form
@@ -1435,6 +1571,20 @@ body.dark-mode .bulk-item-row-header { color: #c7d2fe; }
         if (btn && !btn.disabled) btn.innerText = total > 1 ? `Register ${total} Tickets (Bundle)` : 'Register Ticket';
         const hint = document.getElementById('bulkModeHint');
         if (hint) hint.style.display = total > 1 ? 'block' : 'none';
+        updateRegMoreOptionsBadge();
+    }
+
+    // Small summary shown on the collapsed "More options" row so it's clear
+    // at a glance that photos and/or extra items are waiting inside, even
+    // while that section is closed.
+    function updateRegMoreOptionsBadge() {
+        const badge = document.getElementById('regMoreOptionsBadge');
+        if (!badge) return;
+        const parts = [];
+        if (bulkItemRows.length > 0) parts.push(`${bulkItemRows.length} extra item${bulkItemRows.length > 1 ? 's' : ''}`);
+        if (selectedRegPhotos.length > 0) parts.push(`${selectedRegPhotos.length} photo${selectedRegPhotos.length > 1 ? 's' : ''}`);
+        if (parts.length > 0) { badge.style.display = 'inline-block'; badge.textContent = parts.join(' · '); }
+        else { badge.style.display = 'none'; }
     }
 
     function collectBulkItemsData() {
@@ -2162,6 +2312,7 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         document.getElementById('overrideForm').classList.remove('has-selection');
         document.getElementById('overrideForm').reset();
         document.getElementById('oStatus').value = 'Pending';
+        clearOverridePhotos();
         document.querySelectorAll('#pipelineRowsContainer tr').forEach(row => row.classList.remove('job-row-selected'));
     }
 
@@ -2283,20 +2434,59 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
     const NOTIF_DISMISS_KEY = 'sap_notif_last_cleared_id';
     let notifFeedCache = [];
 
+    // NEW: "View more" pagination — the panel only loads/renders a page at a
+    // time instead of dumping the whole history. notifPageSize is how many
+    // load each time; notifHasMore tracks whether the backend likely has
+    // older rows left; notifLoadMoreInFlight guards the button from double-fires.
+    const NOTIF_PAGE_SIZE = 20;
+    let notifHasMore = false;
+    let notifLoadMoreInFlight = false;
+
     function getLastClearedNotifId() {
         return Number(localStorage.getItem(NOTIF_DISMISS_KEY)) || 0;
     }
 
     let notifFetchInFlight = null; // de-dupes overlapping calls (e.g. opening the bell right as the poller ticks)
 
+    // Initial/refresh load — always resets back to the first (most recent) page.
     function fetchNotifications() {
         if (notifFetchInFlight) return notifFetchInFlight;
-        notifFetchInFlight = fetch(`${WEB_APP_URL}?action=getNotifications`)
+        notifFetchInFlight = fetch(`${WEB_APP_URL}?action=getNotifications&limit=${NOTIF_PAGE_SIZE}&offset=0`)
         .then(res => res.json())
-        .then(data => { if (data.success) { notifFeedCache = data.notifications; renderNotifPanel(); maybeShowDesktopNotifications(); } })
+        .then(data => {
+            if (data.success) {
+                notifFeedCache = data.notifications;
+                // Backend may not know about paging yet — if it ignores limit/offset
+                // and just returns everything, treat that as "no more pages".
+                notifHasMore = typeof data.hasMore === 'boolean' ? data.hasMore : (data.notifications.length === NOTIF_PAGE_SIZE);
+                renderNotifPanel();
+                maybeShowDesktopNotifications();
+            }
+        })
         .catch(() => {})
         .finally(() => { notifFetchInFlight = null; });
         return notifFetchInFlight;
+    }
+
+    // "View more" — fetches the next older page and appends it to the cache.
+    function loadMoreNotifications() {
+        if (notifLoadMoreInFlight || !notifHasMore) return;
+        notifLoadMoreInFlight = true;
+        renderNotifPanel(); // shows the button's disabled/"Loading…" state immediately
+        fetch(`${WEB_APP_URL}?action=getNotifications&limit=${NOTIF_PAGE_SIZE}&offset=${notifFeedCache.length}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                const existingIds = new Set(notifFeedCache.map(n => n.id));
+                const older = data.notifications.filter(n => !existingIds.has(n.id));
+                notifFeedCache = notifFeedCache.concat(older);
+                notifHasMore = typeof data.hasMore === 'boolean' ? data.hasMore : (data.notifications.length === NOTIF_PAGE_SIZE);
+            } else {
+                notifHasMore = false;
+            }
+        })
+        .catch(() => { notifHasMore = false; })
+        .finally(() => { notifLoadMoreInFlight = false; renderNotifPanel(); });
     }
 
     // ── Desktop Browser Notifications (NEW) ─────────────────────────────────
@@ -2395,8 +2585,8 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         if (!list) return;
         if (notifFeedCache.length === 0) { list.innerHTML = '<div class="notif-empty">No recent updates.</div>'; return; }
 
-        list.innerHTML = notifFeedCache.map(n => `
-            <div class="notif-item ${n.id > lastCleared ? 'unread' : ''}">
+        const itemsHtml = notifFeedCache.map(n => `
+            <div class="notif-item ${n.id > lastCleared ? 'unread' : ''}" onclick="handleNotifItemClick(${n.jobNum})" title="Click to load Job #${n.jobNum} into Administration Modify Overrides">
                 ${getAdminAvatarHtml(n.operator)}
                 <div class="notif-body">
                     <div class="notif-meta"><span>Job #${n.jobNum}</span><span>${formatNotifTime(n.timestamp)}</span></div>
@@ -2404,6 +2594,15 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
                     <div class="notif-note">${n.note || ''}</div>
                 </div>
             </div>`).join('');
+
+        const viewMoreHtml = notifHasMore ? `
+            <div class="notif-view-more-row">
+                <button type="button" class="btn-notif-view-more" onclick="loadMoreNotifications()" ${notifLoadMoreInFlight ? 'disabled' : ''}>
+                    ${notifLoadMoreInFlight ? 'Loading…' : 'View more'}
+                </button>
+            </div>` : '';
+
+        list.innerHTML = itemsHtml + viewMoreHtml;
     }
 
     function toggleNotifPanel() {
@@ -2411,6 +2610,53 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         const willOpen = panel.style.display === 'none';
         panel.style.display = willOpen ? 'block' : 'none';
         if (willOpen) fetchNotifications();
+    }
+
+    // Clears every pipeline filter except the job-number box, then sets that
+    // box to exactly this job number and re-renders — guarantees the row is
+    // visible regardless of whatever status/workshop/tech/date/handover
+    // filters happened to be active before.
+    function filterToJobAndHighlight(jobNum) {
+        document.getElementById('fQuickSearch').value = '';
+        document.getElementById('fItemType').value = 'ALL';
+        document.getElementById('fWorkshop').value = 'ALL';
+        document.getElementById('fTech').value = 'ALL';
+        document.getElementById('fStatus').value = 'ALL';
+        document.getElementById('fHandoverView').value = 'ALL';
+        document.getElementById('fDateFrom').value = '';
+        document.getElementById('fDateTo').value = '';
+        document.getElementById('fHandoverDateFrom').value = '';
+        document.getElementById('fHandoverDateTo').value = '';
+        document.getElementById('fJobNum').value = jobNum;
+        renderPipelineTable();
+
+        const row = document.querySelector(`#pipelineRowsContainer tr[data-jobnum="${jobNum}"]`);
+        if (row) {
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            row.classList.remove('row-flash-highlight');
+            void row.offsetWidth; // restart the animation if it was just played
+            row.classList.add('row-flash-highlight');
+        }
+        return row;
+    }
+
+    // NEW: clicking a notification jumps straight to that job — closes the
+    // panel, filters the pipeline table down to just this job (so it's
+    // guaranteed visible even if a status/workshop/date filter was hiding
+    // it), scrolls it into view and flashes the row, and loads it into the
+    // Administration Modify Overrides form (same as clicking its pipeline
+    // card) so it's obvious which one just got selected.
+    function handleNotifItemClick(jobNum) {
+        document.getElementById('notifPanel').style.display = 'none';
+
+        const job = jobsCacheArray.find(j => j.jobNum == jobNum);
+        if (!job) {
+            showToast(`Job #${jobNum} could not be found — it may have been removed.`, "error");
+            return;
+        }
+
+        selectJobForOverride(jobNum);
+        filterToJobAndHighlight(jobNum);
     }
 
     // "View it, then clear it" — clearing just moves the local watermark up
@@ -2423,11 +2669,17 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         renderNotifPanel();
     }
 
+    // NOTE: capture phase (the trailing `true`) is required here. "View
+    // more" (loadMoreNotifications) re-renders notifList's innerHTML the
+    // instant it's clicked, which detaches the clicked button from the DOM
+    // before this listener would otherwise run in the bubble phase — making
+    // `wrap.contains(e.target)` false and closing the panel on every click.
+    // Running in capture fires this check BEFORE that re-render happens.
     document.addEventListener('click', function (e) {
         const wrap = document.querySelector('.notif-bell-wrap');
         const panel = document.getElementById('notifPanel');
         if (wrap && panel && !wrap.contains(e.target)) { panel.style.display = 'none'; }
-    });
+    }, true);
     // ─────────────────────────────────────────────────────────────────────────
 
     function toggleAdminHistoryPane(jobNum) {
@@ -2531,7 +2783,11 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
             fault: document.getElementById('fault').value.trim(),
             workshop: document.getElementById('workshop').value,
             tech: document.getElementById('tech').value,
-            estimatedPrice: getEstimatePriceRangeString()
+            estimatedPrice: getEstimatePriceRangeString(),
+            // Intake photos picked via the "Intake Photos" field — attached
+            // to this (the primary) item's job history. In a bulk
+            // registration these ride along on item1 only.
+            images: selectedRegPhotos.map((p) => ({ base64: p.base64, name: p.name }))
         };
         const formSnapshot = Object.assign({ mobile, customerName }, item1);
 
@@ -2604,6 +2860,7 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
 
         document.getElementById('registrationForm').reset(); 
         resetBulkItemsUI();
+        clearRegPhotos();
         document.getElementById('lookupAlert').style.display = "none"; 
         document.getElementById('estimateRangeHint').innerText = "";
         
@@ -3247,12 +3504,16 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
             model: document.getElementById('oModel').value.trim(),
             serial: document.getElementById('oSerial').value.trim(),
             fault: document.getElementById('oFault').value.trim(),
-            handoverTime: document.getElementById('oHandoverTime').value
+            handoverTime: document.getElementById('oHandoverTime').value,
+            // Photos picked via "Attach Photos" — saved to this override's
+            // own history entry server-side.
+            images: selectedOverridePhotos.map((p) => ({ base64: p.base64, name: p.name }))
         }) })
         .then(res => res.json()).then(data => {
             if(data.success) {
                 document.getElementById('overrideForm').reset();
                 document.getElementById('overrideForm').classList.remove('has-selection');
+                clearOverridePhotos();
                 selectedOverrideJobNum = null;
                 showToast(`✓ Override applied to Job #${overriddenJobNum}`, 'success');
 
@@ -5098,6 +5359,48 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
     });
 </script>
 <!-- ══════════════════════════════ END BIRTHDAY SNIPPET ══════════════════════════════ -->
+
+<script>
+    // ── PWA install support ─────────────────────────────────────────────
+    // Registers service-worker.js (must sit next to this HTML file on the
+    // same origin) so Chrome/Edge/Android offer an actual "Install app"
+    // prompt, and iOS Safari's "Add to Home Screen" picks up the manifest
+    // + apple-touch-icon set in <head>. Silently no-ops if the browser
+    // doesn't support service workers, or the file isn't deployed yet.
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+            navigator.serviceWorker.register('service-worker.js').catch(function () {
+                /* not deployed yet, or blocked — installability just won't be offered */
+            });
+        });
+    }
+
+    // Surfaces the browser's native install prompt via a small floating
+    // button instead of leaving it to the browser's own UI (which many
+    // users never notice). Purely additive — if the browser never fires
+    // this event (iOS, or already installed), the button just never shows.
+    let deferredInstallPrompt = null;
+    window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        deferredInstallPrompt = e;
+        const btn = document.getElementById('pwaInstallBtn');
+        if (btn) btn.style.display = 'inline-flex';
+    });
+    function triggerPwaInstall() {
+        const btn = document.getElementById('pwaInstallBtn');
+        if (!deferredInstallPrompt) return;
+        deferredInstallPrompt.prompt();
+        deferredInstallPrompt.userChoice.finally(function () {
+            deferredInstallPrompt = null;
+            if (btn) btn.style.display = 'none';
+        });
+    }
+    window.addEventListener('appinstalled', function () {
+        const btn = document.getElementById('pwaInstallBtn');
+        if (btn) btn.style.display = 'none';
+        deferredInstallPrompt = null;
+    });
+</script>
 
 </body>
 </html>

@@ -1187,7 +1187,7 @@ body.dark-mode .bulk-item-row-header { color: #c7d2fe; }
     <div class="card">
         <h2 style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
             <span>📈 Shop Performance Analytics</span>
-            <button type="button" onclick="fetchLivePipelineData()" style="border:none; background:#eef2ff; color:#4338ca; font-size:11px; font-weight:700; padding:5px 10px; border-radius:20px; cursor:pointer;">🔄 Sync Data</button>
+            <button type="button" id="anUpdateDataBtn" onclick="updateAnalyticsData()" style="border:none; background:#eef2ff; color:#4338ca; font-size:11px; font-weight:700; padding:5px 10px; border-radius:20px; cursor:pointer;">🔄 Update Data</button>
         </h2>
         <div class="controls-bar" style="border-radius:8px;">
             <select id="anQuickRange" onchange="onAnalyticsQuickRangeChange()" title="Date range">
@@ -5639,6 +5639,10 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
     const CLOSED_STATUSES = ['Completed', 'Cant Repair', 'Returned', 'Warranty Claimed'];
     const charts = {};
     let filterOptionsKey = '';
+    // Egress fix: charts render once from whatever's already cached, and never
+    // re-render themselves just because the background pipeline poller ticked.
+    // Fresh data only comes in when the admin explicitly clicks "Update Data".
+    let analyticsLoaded = false;
 
     const esc = (s) => (s === null || s === undefined) ? '' : String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -5798,6 +5802,7 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
 
     function renderAnalytics() {
         if (!$('analyticsView')) return;
+        analyticsLoaded = true;
         if (typeof Chart === 'undefined') {
             $('anKpiGrid').innerHTML = '<div class="an-empty" style="grid-column:1/-1;">Chart library could not be loaded (check internet access to cdnjs.cloudflare.com).</div>';
             return;
@@ -5928,6 +5933,21 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
     }
 
     window.renderAnalytics = renderAnalytics;
+
+    // Manual "Update Data" button: the ONLY thing that pulls fresh data from
+    // Supabase for the analytics view. Fetches the pipeline once, then redraws
+    // the charts from the result. Nothing else in this section calls the network.
+    window.updateAnalyticsData = function () {
+        const btn = $('anUpdateDataBtn');
+        const original = btn ? btn.innerHTML : null;
+        if (btn) { btn.disabled = true; btn.style.opacity = '0.7'; btn.innerHTML = '<span class="btn-spinner"></span>Updating...'; }
+        fetchLivePipelineData().then(() => {
+            renderAnalytics();
+        }).finally(() => {
+            if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.innerHTML = original; }
+        });
+    };
+
     window.onAnalyticsQuickRangeChange = function () {
         const custom = $('anQuickRange').value === 'custom';
         $('anDateFrom').style.display = custom ? '' : 'none';
@@ -5944,25 +5964,29 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
     };
 
     // Tab switching: wraps the existing switchAdminTab so nothing in it needs editing.
+    // Charts are built the FIRST time this tab is opened (from whatever's already
+    // cached — no network call of its own) and left alone after that. Switching
+    // away and back does not reload or redraw them; only the "Update Data"
+    // button does. This is deliberate — see the egress note above.
     const origSwitch = window.switchAdminTab;
     window.switchAdminTab = function (tab) {
         const view = $('analyticsView'), btn = $('tabBtnAnalytics');
         if (tab === 'analytics') {
             origSwitch('__analytics__'); // hides every existing view + deactivates their buttons
             view.style.display = ''; btn.classList.add('active');
-            renderAnalytics();
+            if (!analyticsLoaded) renderAnalytics();
         } else {
             view.style.display = 'none'; btn.classList.remove('active');
             origSwitch(tab);
         }
     };
 
-    // Re-render when new pipeline data arrives (Sync / Auto-sync) while this tab is open
-    const origRenderPipeline = window.renderPipelineTable;
-    window.renderPipelineTable = function () {
-        origRenderPipeline.apply(this, arguments);
-        if (isAnalyticsVisible()) renderAnalytics();
-    };
+    // NOTE (egress fix): this used to wrap window.renderPipelineTable and
+    // re-render every analytics chart any time fresh pipeline data landed —
+    // including from the ~60s background auto-sync poller — while this tab
+    // happened to be open. That silently redrew charts on a timer even though
+    // no one asked for it. Removed: analytics now only updates from the
+    // "Update Data" button above.
 
     // Re-colour charts when dark mode is toggled
     const origToggleDark = window.toggleDarkMode;

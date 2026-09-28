@@ -3164,7 +3164,7 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
     // Anything not listed here (or a custom "Other" job) falls back to the
     // 'Other' generic checklist below.
     const DIAGNOSTIC_PARTS_BY_CATEGORY = {
-        'Computer': ['Storage Device (HDD / SSD)', 'RAM Module(s)', 'Motherboard', 'VGA / Graphics Card', 'Power Supply Unit (PSU)', 'CPU Cooler / Fan', 'CMOS Battery', 'Cabinet / Chassis Condition'],
+        'Computer': ['Storage Device (HDD / SSD)', 'RAM Module(s)', 'Motherboard', 'CPU (Processor)', 'VGA / Graphics Card', 'Power Supply Unit (PSU)', 'CPU Cooler / Fan', 'CMOS Battery', 'Cabinet / Chassis Condition'],
         'Laptop': ['Storage Device (HDD / SSD)', 'RAM Module(s)', 'Motherboard', 'Battery', 'Charger / AC Adapter', 'Keyboard', 'Touchpad', 'Display / Screen', 'Hinges', 'Speakers', 'Webcam'],
         'Printer': ['Print Head / Cartridge', 'Ink / Toner Level', 'Paper Feed Roller', 'Power Supply Unit', 'USB / Network Port', 'Control Panel / Display'],
         'CCTV Camera': ['Camera Unit(s)', 'DVR / NVR Unit', 'Power Adapter', 'Cabling / Connectors', 'Storage Device (HDD)', 'Network Connection'],

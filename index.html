@@ -255,6 +255,41 @@
         body.dark-mode .admin-comment-author { color: #e2e8f0; }
         body.dark-mode .admin-comment-time { color: #64748b; }
         body.dark-mode .admin-comment-notes { color: #cbd5e1; }
+        /* History comments: edit/delete (Super Admin), reactions, replies */
+        .hc-edited { font-size: 10px; color: #94a3b8; font-style: italic; }
+        .hc-admin-tools { margin-left: auto; display: inline-flex; gap: 6px; }
+        .hc-icon-btn { background: none; border: none; cursor: pointer; font-size: 12px; padding: 2px 4px; border-radius: 4px; opacity: .75; }
+        .hc-icon-btn:hover { opacity: 1; background: #f1f5f9; }
+        .hc-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
+        .hc-chip { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 20px; padding: 2px 9px; font-size: 12px; cursor: pointer; line-height: 1.5; }
+        .hc-chip:hover { background: #e2e8f0; }
+        .hc-chip-mine { background: #dbeafe; border-color: #93c5fd; color: #1e3a8a; font-weight: 700; }
+        .hc-btn { background: none; border: none; color: #2563eb; font-weight: 700; font-size: 11px; cursor: pointer; padding: 2px 4px; }
+        .hc-btn:hover { text-decoration: underline; }
+        .hc-picker { display: none; gap: 4px; background: #fff; border: 1px solid #e2e8f0; border-radius: 20px; padding: 3px 8px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+        .hc-picker button { background: none; border: none; font-size: 17px; cursor: pointer; padding: 1px 3px; border-radius: 6px; }
+        .hc-picker button:hover { background: #f1f5f9; transform: scale(1.15); }
+        .hc-replies { margin-top: 8px; padding-left: 10px; border-left: 3px solid #e2e8f0; display: flex; flex-direction: column; gap: 6px; }
+        .hc-reply { font-size: 12px; }
+        .hc-reply-head { display: flex; gap: 8px; align-items: center; color: #64748b; font-size: 11px; }
+        .hc-reply-head b { color: #1e293b; }
+        .hc-reply-text { color: #475569; white-space: pre-wrap; word-break: break-word; }
+        .hc-box { display: none; margin-top: 8px; gap: 6px; flex-direction: column; }
+        .hc-box textarea { width: 100%; min-height: 52px; resize: vertical; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px 8px; font-size: 12.5px; font-family: inherit; box-sizing: border-box; }
+        .hc-box-row { display: flex; gap: 6px; justify-content: flex-end; }
+        .hc-box-row button { border: none; border-radius: 6px; padding: 4px 12px; font-size: 11.5px; font-weight: 700; cursor: pointer; }
+        .hc-save { background: #1e3a8a; color: #fff; }
+        .hc-cancel { background: #e2e8f0; color: #334155; }
+        body.dark-mode .hc-icon-btn:hover { background: #334155; }
+        body.dark-mode .hc-chip { background: #0f172a; border-color: #334155; color: #e2e8f0; }
+        body.dark-mode .hc-chip-mine { background: #12305c; border-color: #2563eb; color: #93c5fd; }
+        body.dark-mode .hc-picker { background: #1e293b; border-color: #334155; }
+        body.dark-mode .hc-picker button:hover { background: #334155; }
+        body.dark-mode .hc-replies { border-left-color: #334155; }
+        body.dark-mode .hc-reply-head b { color: #e2e8f0; }
+        body.dark-mode .hc-reply-text { color: #cbd5e1; }
+        body.dark-mode .hc-box textarea { background: #0f172a; border-color: #334155; color: #e2e8f0; }
+        body.dark-mode .hc-cancel { background: #334155; color: #e2e8f0; }
         
         .lightbox-modal { display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); align-items: center; justify-content: center; }
 
@@ -2832,11 +2867,180 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         return map[status] || '#64748b';
     }
 
+    // ── History comments: edit/delete (Super Admin only) + reactions + replies ──
+    const HC_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+    const adminHistoryStore = {}; // jobNum -> array of log objects (with transient UI flags prefixed "_")
+    const hcEsc = (v) => String(v === null || v === undefined ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const hcFind = (jobNum, logId) => (adminHistoryStore[jobNum] || []).find(l => String(l.id) === String(logId));
+    function hcPost(body) {
+        return fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(body) }).then(r => r.json());
+    }
+    function hcNetErr() { showToast('Network error. Please try again.', 'error'); }
+
+    function hcBuildComment(jobNum, log) {
+        const me = (currentUsername || '').toLowerCase();
+        let thumbsHtml = "";
+        (log.images || []).forEach(url => { if (url) thumbsHtml += `<img src="${url}" class="admin-thumb" onclick="launchAdminLightbox('${url}')" onerror="this.src='https://cdn-icons-png.flaticon.com/512/13434/13434972.png'">`; });
+
+        const canManage = isCurrentUserSuperAdmin && log.id !== undefined && log.id !== null;
+        const tools = canManage ? `
+            <span class="hc-admin-tools">
+                <button class="hc-icon-btn" title="Edit comment" onclick="hcStartEdit(${jobNum},'${log.id}')">✏️</button>
+                <button class="hc-icon-btn" title="Delete comment" onclick="hcDeleteComment(${jobNum},'${log.id}')">🗑️</button>
+            </span>` : '';
+        const editedBadge = log.editedAt ? `<span class="hc-edited" title="Edited by ${hcEsc(log.editedBy)} on ${hcEsc(log.editedAt)}">(edited)</span>` : '';
+
+        const notesHtml = log._editing ? `
+            <div class="hc-box" style="display:flex;">
+                <textarea id="hc-edit-${log.id}" oninput="hcSetDraft(${jobNum},'${log.id}','_editDraft',this.value)">${hcEsc(log._editDraft ?? log.notes ?? '')}</textarea>
+                <div class="hc-box-row">
+                    <button class="hc-cancel" onclick="hcCancelEdit(${jobNum},'${log.id}')">Cancel</button>
+                    <button class="hc-save" onclick="hcSaveEdit(${jobNum},'${log.id}')">Save</button>
+                </div>
+            </div>` : `<div class="admin-comment-notes">${log.notes || ''}</div>`;
+
+        // Reactions + reply controls (need a real log id from the backend)
+        let actionsHtml = '';
+        if (log.id !== undefined && log.id !== null) {
+            const chips = (log.reactions || []).map(r => {
+                const mine = (r.users || []).some(u => String(u).toLowerCase() === me);
+                return `<button class="hc-chip ${mine ? 'hc-chip-mine' : ''}" title="${hcEsc((r.users || []).join(', '))}" onclick="hcReact(${jobNum},'${log.id}','${r.emoji}')">${r.emoji} ${r.count}</button>`;
+            }).join('');
+            const picker = HC_EMOJIS.map(e => `<button onclick="hcReact(${jobNum},'${log.id}','${e}')">${e}</button>`).join('');
+            const replyCount = (log.replies || []).length;
+            actionsHtml = `
+                <div class="hc-actions">
+                    ${chips}
+                    <button class="hc-btn" title="Add reaction" onclick="hcTogglePicker(${jobNum},'${log.id}')">😊 React</button>
+                    <div class="hc-picker" style="display:${log._pickerOpen ? 'flex' : 'none'};">${picker}</div>
+                    <button class="hc-btn" onclick="hcToggleReply(${jobNum},'${log.id}')">💬 Reply${replyCount ? ` (${replyCount})` : ''}</button>
+                </div>`;
+        }
+
+        const repliesHtml = (log.replies || []).length ? `
+            <div class="hc-replies">
+                ${(log.replies || []).map(rp => {
+                    const canDel = isCurrentUserSuperAdmin || String(rp.username || '').toLowerCase() === me;
+                    return `<div class="hc-reply">
+                        <div class="hc-reply-head"><b>${hcEsc(rp.authorName || rp.username)}</b><span>🗓️ ${hcEsc(rp.timestamp)}</span>
+                            ${canDel ? `<button class="hc-icon-btn" title="Delete reply" onclick="hcDeleteReply(${jobNum},'${log.id}','${rp.id}')">🗑️</button>` : ''}
+                        </div>
+                        <div class="hc-reply-text">${hcEsc(rp.message)}</div>
+                    </div>`;
+                }).join('')}
+            </div>` : '';
+
+        const replyBox = (log.id !== undefined && log.id !== null) ? `
+            <div class="hc-box" style="display:${log._replyOpen ? 'flex' : 'none'};">
+                <textarea id="hc-reply-${log.id}" maxlength="500" placeholder="Write a reply…" oninput="hcSetDraft(${jobNum},'${log.id}','_replyDraft',this.value)">${hcEsc(log._replyDraft || '')}</textarea>
+                <div class="hc-box-row"><button class="hc-save" onclick="hcSendReply(${jobNum},'${log.id}')">Send reply</button></div>
+            </div>` : '';
+
+        return `
+            <div class="admin-comment-item" id="hc-${log.id}">
+                ${getAdminAvatarHtml(log.operator)}
+                <div class="admin-comment-bubble">
+                    <div class="admin-comment-bubble-head">
+                        <span class="admin-comment-author">${log.operator}</span>
+                        <span class="admin-comment-status-chip" style="background:${getAdminStatusChipColor(log.status)};">${log.status}</span>
+                        <span class="admin-comment-time">🗓️ ${log.timestamp}</span>
+                        ${editedBadge}
+                        ${tools}
+                    </div>
+                    ${notesHtml}
+                    ${thumbsHtml ? `<div class="admin-comment-images">${thumbsHtml}</div>` : ''}
+                    ${actionsHtml}
+                    ${repliesHtml}
+                    ${replyBox}
+                </div>
+            </div>`;
+    }
+    function hcRepaint(jobNum, logId) {
+        const log = hcFind(jobNum, logId); const el = document.getElementById('hc-' + logId);
+        if (!log || !el) return;
+        const tmp = document.createElement('div'); tmp.innerHTML = hcBuildComment(jobNum, log).trim();
+        el.replaceWith(tmp.firstElementChild);
+    }
+    function hcSetDraft(jobNum, logId, key, val) { const log = hcFind(jobNum, logId); if (log) log[key] = val; }
+    function hcTogglePicker(jobNum, logId) { const log = hcFind(jobNum, logId); if (!log) return; log._pickerOpen = !log._pickerOpen; hcRepaint(jobNum, logId); }
+    function hcToggleReply(jobNum, logId) {
+        const log = hcFind(jobNum, logId); if (!log) return;
+        log._replyOpen = !log._replyOpen; hcRepaint(jobNum, logId);
+        if (log._replyOpen) { const t = document.getElementById('hc-reply-' + logId); if (t) t.focus(); }
+    }
+
+    function hcReact(jobNum, logId, emoji) {
+        const log = hcFind(jobNum, logId); if (!log) return;
+        log._pickerOpen = false;
+        hcPost({ action: 'toggleLogReaction', logId: logId, emoji: emoji, username: currentUsername })
+            .then(res => {
+                if (!res.success) { showToast(res.error || 'Could not save reaction.', 'error'); return; }
+                log.reactions = res.reactions || []; hcRepaint(jobNum, logId);
+            }).catch(hcNetErr);
+    }
+    function hcSendReply(jobNum, logId) {
+        const log = hcFind(jobNum, logId); if (!log) return;
+        const message = (log._replyDraft || '').trim();
+        if (!message) { showToast('Reply cannot be empty.', 'error'); return; }
+        hcPost({ action: 'addLogReply', logId: logId, username: currentUsername, message: message })
+            .then(res => {
+                if (!res.success) { showToast(res.error || 'Could not send reply.', 'error'); return; }
+                log.replies = res.replies || []; log._replyDraft = ''; log._replyOpen = true; hcRepaint(jobNum, logId);
+            }).catch(hcNetErr);
+    }
+    function hcDeleteReply(jobNum, logId, replyId) {
+        if (!confirm('Delete this reply?')) return;
+        const log = hcFind(jobNum, logId); if (!log) return;
+        hcPost({ action: 'deleteLogReply', replyId: replyId, requester: currentUsername })
+            .then(res => {
+                if (!res.success) { showToast(res.error || 'Could not delete reply.', 'error'); return; }
+                log.replies = (log.replies || []).filter(r => String(r.id) !== String(replyId)); hcRepaint(jobNum, logId);
+            }).catch(hcNetErr);
+    }
+
+    // Super Admin only (the backend re-checks this on every call)
+    function hcStartEdit(jobNum, logId) {
+        if (!isCurrentUserSuperAdmin) return;
+        const log = hcFind(jobNum, logId); if (!log) return;
+        log._editing = true; log._editDraft = log.notes || ''; hcRepaint(jobNum, logId);
+    }
+    function hcCancelEdit(jobNum, logId) {
+        const log = hcFind(jobNum, logId); if (!log) return;
+        log._editing = false; delete log._editDraft; hcRepaint(jobNum, logId);
+    }
+    function hcSaveEdit(jobNum, logId) {
+        const log = hcFind(jobNum, logId); if (!log) return;
+        const notes = (log._editDraft ?? '').trim();
+        if (!notes) { showToast('Comment cannot be empty.', 'error'); return; }
+        hcPost({ action: 'editHistoryComment', logId: logId, notes: notes, requester: currentUsername })
+            .then(res => {
+                if (!res.success) { showToast(res.error || 'Could not edit comment.', 'error'); return; }
+                log.notes = notes; log.editedAt = res.editedAt; log.editedBy = res.editedBy;
+                log._editing = false; delete log._editDraft; hcRepaint(jobNum, logId);
+                showToast('Comment updated.', 'success');
+            }).catch(hcNetErr);
+    }
+    function hcDeleteComment(jobNum, logId) {
+        if (!isCurrentUserSuperAdmin) return;
+        if (!confirm('Delete this history comment permanently? Its reactions and replies will be removed too.')) return;
+        hcPost({ action: 'deleteHistoryComment', logId: logId, requester: currentUsername })
+            .then(res => {
+                if (!res.success) { showToast(res.error || 'Could not delete comment.', 'error'); return; }
+                adminHistoryStore[jobNum] = (adminHistoryStore[jobNum] || []).filter(l => String(l.id) !== String(logId));
+                const el = document.getElementById('hc-' + logId); if (el) el.remove();
+                showToast('Comment deleted.', 'success');
+            }).catch(hcNetErr);
+    }
+
     function renderAdminHistoryLogsContent(jobNum) {
         const panel = document.getElementById(`history-panel-${jobNum}`); if(!panel) return;
-        panel.innerHTML = `<div style="text-align:center; color:#94a3b8; font-size:12px; padding:10px 0;">Loading activity…</div>`;
+        // Don't wipe a comment the person is typing/editing when the pipeline auto-refreshes.
+        const typing = panel.contains(document.activeElement) && document.activeElement && document.activeElement.tagName === 'TEXTAREA';
+        if (typing && adminHistoryStore[jobNum]) return;
+        if (!adminHistoryStore[jobNum]) panel.innerHTML = `<div style="text-align:center; color:#94a3b8; font-size:12px; padding:10px 0;">Loading activity…</div>`;
         fetch(`${WEB_APP_URL}?action=getJobHistory&jobNum=${jobNum}`).then(res => res.json()).then(data => {
             if(!data.success || data.history.length === 0) { 
+                adminHistoryStore[jobNum] = [];
                 panel.innerHTML = `
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <span style="font-size:12px; color:#64748b;">No logs match this ticket.</span>
@@ -2852,28 +3056,21 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
             const ordered = allTimestampsParseable
                 ? raw.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
                 : raw.reverse(); // fallback: sheet rows are appended oldest→newest, so reversing puts newest first
+
+            // Carry over open reply boxes / drafts / edit mode from the previous paint.
+            const prev = adminHistoryStore[jobNum] || [];
+            ordered.forEach(log => {
+                const old = prev.find(o => String(o.id) === String(log.id));
+                if (old) { ['_editing', '_editDraft', '_replyOpen', '_replyDraft', '_pickerOpen'].forEach(k => { if (old[k] !== undefined) log[k] = old[k]; }); }
+            });
+            adminHistoryStore[jobNum] = ordered;
+
             let feedHtml = `
                 <div class="admin-feed-refresh-row">
                     <button onclick="renderAdminHistoryLogsContent(${jobNum})" style="background:#1e3a8a; color:white; border:none; padding:4px 10px; border-radius:4px; font-size:11px; cursor:pointer; font-weight:bold;">🔄 Refresh Logs</button>
                 </div>
                 <div class="admin-activity-feed">`;
-            ordered.forEach(log => {
-                let thumbsHtml = "";
-                log.images.forEach(url => { if(url) thumbsHtml += `<img src="${url}" class="admin-thumb" onclick="launchAdminLightbox('${url}')" onerror="this.src='https://cdn-icons-png.flaticon.com/512/13434/13434972.png'">`; });
-                feedHtml += `
-                    <div class="admin-comment-item">
-                        ${getAdminAvatarHtml(log.operator)}
-                        <div class="admin-comment-bubble">
-                            <div class="admin-comment-bubble-head">
-                                <span class="admin-comment-author">${log.operator}</span>
-                                <span class="admin-comment-status-chip" style="background:${getAdminStatusChipColor(log.status)};">${log.status}</span>
-                                <span class="admin-comment-time">🗓️ ${log.timestamp}</span>
-                            </div>
-                            <div class="admin-comment-notes">${log.notes || ''}</div>
-                            ${thumbsHtml ? `<div class="admin-comment-images">${thumbsHtml}</div>` : ''}
-                        </div>
-                    </div>`;
-            });
+            ordered.forEach(log => { feedHtml += hcBuildComment(jobNum, log); });
             feedHtml += `</div>`;
             panel.innerHTML = feedHtml;
         });

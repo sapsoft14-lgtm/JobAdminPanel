@@ -3323,16 +3323,18 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
                 mobile, customerName, batchId: data.batchId, createdAt: new Date(),
                 includeDiagnosticPage: includeDiagnosticPageChecked,
                 items: allItems.map((it, idx) => Object.assign({}, it, {
-                    jobNum: data.jobs && data.jobs[idx] ? data.jobs[idx].jobNum : null
+                    jobNum: data.jobs && data.jobs[idx] ? data.jobs[idx].jobNum : null,
+                    relatedJobs: data.jobs && data.jobs[idx] ? (data.jobs[idx].relatedJobs || []) : []
                 }))
             };
             const jobNums = lastRegisteredBulk.items.map(it => `#${it.jobNum}`).join(', ');
-            successText.innerText = `🎉 ${allItems.length} jobs registered! Job numbers: ${jobNums}`;
+            successText.innerText = `🎉 ${allItems.length} jobs registered! Job numbers: ${jobNums}`
+                + lastRegisteredBulk.items.map(it => (it.relatedJobs && it.relatedJobs.length) ? ` | #${it.jobNum}:${relatedJobsBannerText(it.relatedJobs)}` : '').join('');
             printBtn.onclick = () => printBulkJobCards(printWinHandle);
         } else {
             // Stash the data needed to print a job card for this new ticket
-            lastRegisteredJob = Object.assign({ jobNum: data.jobNum, createdAt: new Date(), includeDiagnosticPage: includeDiagnosticPageChecked }, formSnapshot);
-            successText.innerText = '🎉 Job registered successfully!';
+            lastRegisteredJob = Object.assign({ jobNum: data.jobNum, createdAt: new Date(), includeDiagnosticPage: includeDiagnosticPageChecked, relatedJobs: data.relatedJobs || [] }, formSnapshot);
+            successText.innerText = '🎉 Job registered successfully!' + relatedJobsBannerText(data.relatedJobs);
             printBtn.onclick = () => printJobCard(printWinHandle);
         }
 
@@ -3409,7 +3411,8 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
             fault: raw.fault,
             estimatedPrice: raw.estimatedPrice || raw.estimatePrice || '',
             createdStr: createdStr,
-            includeDiagnosticPage: !!raw.includeDiagnosticPage
+            includeDiagnosticPage: !!raw.includeDiagnosticPage,
+            relatedJobs: Array.isArray(raw.relatedJobs) ? raw.relatedJobs : []
         };
     }
 
@@ -3450,6 +3453,29 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
     // shell — and now the same A5 page size — as the two job-card copies,
     // just laid out more compactly so all the same fields/checklist items
     // still fit on the smaller sheet.
+    // ── Same-serial repair history (shown on banner + Diagnostic page) ───
+    function relatedJobsBannerText(list) {
+        if (!Array.isArray(list) || list.length === 0) return '';
+        return ' 🔁 Repeat item — same serial seen before in Job ' + list.slice(0, 5).map(r => '#' + r.jobNum).join(', ') + (list.length > 5 ? ' +' + (list.length - 5) + ' more' : '');
+    }
+    function buildRelatedJobsBlock(job, esc) {
+        const list = Array.isArray(job.relatedJobs) ? job.relatedJobs : [];
+        if (list.length === 0) return '';
+        const shown = list.slice(0, 4);
+        const rows = shown.map(r => {
+            const item = [r.itemType, r.model].filter(Boolean).join(' ');
+            const fault = (r.fault || '').toString();
+            const faultShort = fault.length > 70 ? fault.substring(0, 70) + '…' : fault;
+            const price = (r.totalPrice !== '' && r.totalPrice != null) ? ' · Rs. ' + r.totalPrice : '';
+            return `<div style="margin:2px 0;"><b>Job #${esc(r.jobNum)}</b> · ${esc(r.createdDate)} · ${esc(item)} · ${esc(r.status)}${esc(price)}${faultShort ? ' · Fault: ' + esc(faultShort) : ''}${r.sameCustomer ? '' : ' · <i>(different customer)</i>'}</div>`;
+        }).join('');
+        const more = list.length > shown.length ? `<div style="margin-top:2px;"><i>+ ${list.length - shown.length} more earlier job(s) — see Job History</i></div>` : '';
+        return `<div class="diag-related-box" style="border:1.5px solid #b45309; background:#fffbeb; border-radius:4px; padding:5px 8px; margin:6px 0; font-size:9px; line-height:1.35;">
+            <div style="font-weight:800; color:#92400e; margin-bottom:2px;">🔁 REPEAT ITEM — Previously Repaired (same serial number)</div>
+            ${rows}${more}
+        </div>`;
+    }
+
     function buildDiagnosticPageMarkup(job, esc) {
         const parts = getDiagnosticPartsForCategory(job.itemType);
         const partsRows = parts.map(p => `
@@ -3492,6 +3518,8 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
             <div class="f-label">Reported Fault (as told by customer)</div>
             <div class="f-value">${esc(job.fault)}</div>
         </div>
+
+        ${buildRelatedJobsBlock(job, esc)}
 
         <table class="diag-table">
             <thead>
@@ -3914,7 +3942,8 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
             fault: it.fault,
             estimatedPrice: it.estimatedPrice,
             createdAt: lastRegisteredBulk.createdAt,
-            includeDiagnosticPage: lastRegisteredBulk.includeDiagnosticPage
+            includeDiagnosticPage: lastRegisteredBulk.includeDiagnosticPage,
+            relatedJobs: it.relatedJobs || []
         }));
         openBulkCardPrintWindow(jobs, existingWin);
     }

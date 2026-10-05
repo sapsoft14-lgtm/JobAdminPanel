@@ -1338,6 +1338,12 @@ body.dark-mode .bulk-item-row-header { color: #c7d2fe; }
     <div class="invoice-modal-box">
         <div class="invoice-modal-header"><h2 id="cbModalTitle">🧾 Custom Bill</h2><span class="invoice-close-x" onclick="cbCloseModal()">×</span></div>
         <div style="font-size:12px; color:#64748b; margin-bottom:10px;"><span id="cbCustLabel"></span></div>
+        <div class="row" style="margin-bottom:6px;">
+            <div class="form-group"><label>Date</label><input type="date" id="cbDate"></div>
+            <div class="form-group"><label>Customer Name</label><input type="text" id="cbEditName"></div>
+            <div class="form-group"><label>Customer Mobile</label><input type="text" id="cbEditMobile"></div>
+        </div>
+        <button type="button" id="cbConvertBtn" onclick="cbConvertFromModal()" style="display:none; width:100%; margin-bottom:10px; background:#eef2ff; color:#3730a3; border:1px dashed #a5b4fc; padding:9px; border-radius:6px; font-weight:700; cursor:pointer;"></button>
         <table class="invoice-line-table">
             <thead><tr><th style="width:26%;">Description</th><th style="width:12%;">Price</th><th style="width:12%;">Discount</th><th style="width:8%;">Qty</th><th style="width:14%;">Amount</th><th style="width:16%;">Warranty</th><th></th></tr></thead>
             <tbody id="cbLines"></tbody>
@@ -1372,6 +1378,13 @@ body.dark-mode .bulk-item-row-header { color: #c7d2fe; }
         </div>
         <div style="font-size:12px; color:#64748b; margin-bottom:10px;">
             <span id="invCustomerLabel"></span> &nbsp;|&nbsp; <span id="invMobileLabel"></span> &nbsp;|&nbsp; <span id="invItemLabel"></span>
+        </div>
+        <div class="row" style="margin-bottom:6px;">
+            <div class="form-group"><label>Invoice Date</label><input type="date" id="invDate"></div>
+            <div class="form-group"><label>Customer Name</label><input type="text" id="invCustName" placeholder="Customer name"></div>
+            <div class="form-group"><label>Customer Mobile</label><input type="text" id="invCustMobile" placeholder="07XXXXXXXX"></div>
+        </div>
+        <div style="display:none;">
         </div>
 
         <table class="invoice-line-table">
@@ -4531,6 +4544,12 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
     // Sets text on an element by id if it exists; warns (instead of throwing)
     // if it doesn't, so a stale/mismatched page can't silently kill the rest
     // of openInvoiceModal partway through.
+    // yyyy-mm-dd (local) for <input type="date">
+    function toDateInputValue_(d) {
+        if (!d || isNaN(d.getTime())) return '';
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+
     function setTextSafe_(id, text) {
         const el = document.getElementById(id);
         if (!el) { console.warn(`Invoice modal: expected element #${id} was not found on the page.`); return; }
@@ -4566,6 +4585,9 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
         document.getElementById('invPaymentMethod').value = 'Cash';
         document.getElementById('invNotes').value = '';
         document.getElementById('invAutoHandoverToggle').checked = true;
+        document.getElementById('invDate').value = toDateInputValue_(new Date());
+        document.getElementById('invCustName').value = customerName || '';
+        document.getElementById('invCustMobile').value = mobile || '';
         setTextSafe_('invoiceModalTitle', `🧾 Loading invoice — Job #${jobNum}...`);
         document.getElementById('invoiceModalOverlay').style.display = 'flex';
 
@@ -4584,6 +4606,9 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
                     document.getElementById('invAmountPaid').value = inv.amountPaid || 0;
                     document.getElementById('invPaymentMethod').value = inv.paymentMethod || 'Cash';
                     document.getElementById('invNotes').value = inv.notes || '';
+                    if (inv.createdDate) document.getElementById('invDate').value = toDateInputValue_(new Date(inv.createdDate));
+                    if (inv.customerName) document.getElementById('invCustName').value = inv.customerName;
+                    if (inv.mobile) document.getElementById('invCustMobile').value = inv.mobile;
                 } else {
                     setTextSafe_('invoiceModalTitle', `🧾 New Invoice — Job #${jobNum}`);
                     addInvoiceLineItem(firstLineItemFromJob_(jobNum));
@@ -4617,7 +4642,10 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
             paymentMethod: document.getElementById('invPaymentMethod').value || 'Cash',
             paymentStatus: calc.status,
             notes: document.getElementById('invNotes').value.trim(),
-            createdBy: techLabel
+            createdBy: techLabel,
+            invoiceDate: document.getElementById('invDate').value,
+            customerName: document.getElementById('invCustName').value.trim(),
+            mobile: document.getElementById('invCustMobile').value.trim()
         };
 
         fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) })
@@ -4655,8 +4683,8 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
                         invoiceNum: data.invoiceNum, subtotal: data.subtotal !== undefined ? data.subtotal : calc.subtotal,
                         total: data.total !== undefined ? data.total : calc.total,
                         balance: data.balance !== undefined ? data.balance : calc.balance,
-                        customerName: document.getElementById('invCustomerLabel').innerText.replace('👤 ', ''),
-                        mobile: document.getElementById('invMobileLabel').innerText.replace('📞 ', '')
+                        customerName: document.getElementById('invCustName').value.trim(),
+                        mobile: document.getElementById('invCustMobile').value.trim()
                     }));
                 } else {
                     closeInvoiceModal();
@@ -4774,7 +4802,7 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
                 </div>
             </div>
             <div class="inv-meta">
-                <div><span class="lbl">Date:</span> <span class="val">${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span></div>
+                <div><span class="lbl">Date:</span> <span class="val">${new Date(inv.invoiceDate || inv.createdDate || Date.now()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span></div>
                 ${inv.isCustom ? '' : `<div><span class="lbl">Job Number:</span> <span class="val">#${esc(inv.jobNum || currentInvoiceJobNum || '')}</span></div>`}
                 <div><span class="lbl">${esc(inv.docLabel || 'Invoice Number')}:</span> <span class="val">${esc(inv.invoiceNum || '')}</span></div>
             </div>
@@ -4971,7 +4999,8 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
                 <td><span class="invoice-status-tag invoice-status-${inv.paymentStatus}">${inv.paymentStatus}</span>${inv.paymentMethod ? `<br><span style="font-size:11px; color:#64748b;">${inv.paymentMethod}</span>` : ''}</td>
                 <td>
                     <a class="history-link" onclick="openInvoiceModal(${inv.jobNum}, ${JSON.stringify(inv.customerName || '').replace(/"/g, '&quot;')}, ${JSON.stringify(inv.mobile || '').replace(/"/g, '&quot;')}, ${JSON.stringify(inv.itemType || '').replace(/"/g, '&quot;')}, ${JSON.stringify(inv.model || '').replace(/"/g, '&quot;')})">✏️ Edit</a><br>
-                    <a class="history-link" style="color:#1e3a8a;" onclick="presentInvoiceChoice(${JSON.stringify(inv).replace(/"/g, '&quot;')})">🖨️ Print</a>
+                    <a class="history-link" style="color:#1e3a8a;" onclick="presentInvoiceChoice(${JSON.stringify(inv).replace(/"/g, '&quot;')})">🖨️ Print</a><br>
+                    <a class="history-link" style="color:#6d28d9;" onclick="convertJobInvoiceToQuotation(${inv.jobNum})">📝 To Quotation</a>
                 </td>
             </tr>
         `).join('');
@@ -5044,7 +5073,7 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
             <td>${r.type}<br><span style="font-size:11px; color:#64748b;">${esc_(r.sub)}</span></td>
             <td>Total: <strong>${cbMoney(r.total)}</strong>${r.type === 'Quotation' ? '' : `<br><span style="font-size:11px; color:#64748b;">Paid: ${cbMoney(r.paid)} | Bal: ${cbMoney(r.bal)}</span>`}</td>
             <td><span class="invoice-status-tag invoice-status-${esc_(r.status)}">${esc_(r.status)}</span></td>
-            <td><a class="history-link" style="color:#1e3a8a;" onclick="cbPrintRow(${i})">🖨️ Print</a>
+            <td><a class="history-link" style="color:#1e3a8a;" onclick="cbPrintRow(${i})">🖨️ Print</a>${r.type !== 'Quotation' ? ` &nbsp;<a class="history-link" style="color:#6d28d9;" onclick="cbToQuotation(${i})">📝 To Quotation</a>` : ''}
             ${r.kind === 'custom' ? ` &nbsp;<a class="history-link" onclick="cbEditRow(${i})">✏️ Edit</a>${r.type === 'Quotation' ? ` &nbsp;<a class="history-link" style="color:#059669;" onclick="cbConvert(${i})">➡️ To Invoice</a>` : ''}${isCurrentUserSuperAdmin ? ` &nbsp;<a class="history-link" style="color:#dc2626;" onclick="cbDelete(${i})">🗑️</a>` : ''}` : ''}</td></tr>`).join('')
             : '<tr><td colspan="5" style="padding:16px; text-align:center; color:#94a3b8;">No invoices or quotations for this customer yet.</td></tr>';
     }
@@ -5104,6 +5133,15 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
         const q = type === 'Quotation';
         document.getElementById('cbModalTitle').innerText = `${q ? '📝 Quotation' : '🧾 Custom Bill'}${bill ? ' — ' + bill.docNumber : ' — New'}`;
         document.getElementById('cbCustLabel').innerText = `👤 ${cbCustomer.name} | 📞 ${cbCustomer.mobile}`;
+        document.getElementById('cbEditName').value = (bill && bill.customerName) || cbCustomer.name || '';
+        document.getElementById('cbEditMobile').value = (bill && bill.mobile) || cbCustomer.mobile || '';
+        document.getElementById('cbDate').value = toDateInputValue_(bill && bill.createdDate ? new Date(bill.createdDate) : new Date());
+        window._cbEditingBill = bill || null;
+        const cvBtn = document.getElementById('cbConvertBtn');
+        if (bill) {
+            cvBtn.style.display = '';
+            cvBtn.innerText = q ? '➡️ Convert this Quotation to a Bill' : '📝 Create a Quotation from this Bill';
+        } else { cvBtn.style.display = 'none'; }
         ['cbPaidWrap', 'cbMethodWrap', 'cbBalRow'].forEach(id => document.getElementById(id).style.display = q ? 'none' : '');
         document.getElementById('cbValidWrap').style.display = q ? '' : 'none';
         document.getElementById('cbLines').innerHTML = '';
@@ -5122,13 +5160,15 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
     function cbSave(print) {
         const c = cbRecalc(); if (!c.items.length) { showToast('Add at least one line item.', 'error'); return; }
         const q = cbDocType === 'Quotation';
-        const payload = { action: 'saveCustomBill', id: cbEditId, docType: cbDocType, customerName: cbCustomer.name, mobile: cbCustomer.mobile,
+        const payload = { action: 'saveCustomBill', id: cbEditId, docType: cbDocType, customerName: document.getElementById('cbEditName').value.trim(), mobile: document.getElementById('cbEditMobile').value.trim(), invoiceDate: document.getElementById('cbDate').value,
             lineItems: c.items, amountPaid: q ? 0 : c.paid, paymentMethod: document.getElementById('cbMethod').value,
             validUntil: document.getElementById('cbValid').value, warrantyPeriod: document.getElementById('cbWarPeriod').value, warrantyNote: document.getElementById('cbWarNote').value.trim(), warrantySerial: document.getElementById('cbWarSerial').value.trim(), notes: document.getElementById('cbNotes').value.trim(),
             createdBy: (document.getElementById('loggedInTechName') || {}).innerText || 'Admin' };
         fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) }).then(r => r.json()).then(d => {
             if (!d.success) { showToast(d.error || 'Save failed (run the SQL migration?).', 'error'); return; }
-            showToast(`${d.bill.docNumber} saved.`, 'success'); cbCloseModal(); cbLoad();
+            showToast(`${d.bill.docNumber} saved.`, 'success'); cbCloseModal();
+            if (cbNorm(d.bill.mobile) !== cbNorm(cbCustomer.mobile)) { cbCustomer = { name: d.bill.customerName, mobile: d.bill.mobile }; document.getElementById('cbCustSearch').value = `${cbCustomer.name} — ${cbCustomer.mobile}`; cbSaved = cbSaved.filter(c => cbNorm(c.mobile) !== cbNorm(d.bill.mobile)).concat({ name: d.bill.customerName, mobile: d.bill.mobile }); cbRefreshList(); }
+            cbLoad();
             if (print) { window._cbRows = [{ kind: 'custom', ref: d.bill }]; cbPrintRow(0); }
         }).catch(() => showToast('Network error saving.', 'error'));
     }
@@ -5138,6 +5178,39 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
         fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'convertQuotationToBill', id: b.id, requester: currentUsername }) })
             .then(r => r.json()).then(d => { if (d.success) { showToast(`Created ${d.bill.docNumber}.`, 'success'); cbLoad(); } else showToast(d.error || 'Convert failed.', 'error'); })
             .catch(() => showToast('Network error.', 'error'));
+    }
+    // Invoice -> Quotation (copy; original invoice is kept untouched)
+    function cbRequestToQuotation(body) {
+        return fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action: 'convertToQuotation', requester: currentUsername, createdBy: currentUsername }, body)) })
+            .then(r => r.json()).then(d => {
+                if (!d.success) { showToast(d.error || 'Convert failed.', 'error'); return; }
+                showToast(`Created ${d.bill.docNumber}.`, 'success');
+                cbCustomer = { name: d.bill.customerName, mobile: d.bill.mobile };
+                document.getElementById('cbCustSearch').value = `${cbCustomer.name} — ${cbCustomer.mobile}`;
+                cbLoad();
+                document.getElementById('cbPanel').scrollIntoView({ behavior: 'smooth' });
+            }).catch(() => showToast('Network error.', 'error'));
+    }
+    function cbToQuotation(i) {
+        const r = window._cbRows[i];
+        if (!confirm(`Create a quotation from ${r.label}? The original invoice stays as it is.`)) return;
+        cbRequestToQuotation(r.kind === 'job' ? { source: 'job', jobNum: r.ref.jobNum } : { source: 'custom', id: r.ref.id });
+    }
+    function convertJobInvoiceToQuotation(jobNum) {
+        if (!confirm(`Create a quotation from the invoice of Job #${jobNum}? The original invoice stays as it is.`)) return;
+        cbRequestToQuotation({ source: 'job', jobNum });
+    }
+    function cbConvertFromModal() {
+        const b = window._cbEditingBill; if (!b) return;
+        cbCloseModal();
+        if (b.docType === 'Quotation') {
+            if (!confirm(`Convert ${b.docNumber} into a custom bill?`)) return;
+            fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'convertQuotationToBill', id: b.id, requester: currentUsername }) })
+                .then(r => r.json()).then(d => { if (d.success) { showToast(`Created ${d.bill.docNumber}.`, 'success'); cbLoad(); } else showToast(d.error || 'Convert failed.', 'error'); })
+                .catch(() => showToast('Network error.', 'error'));
+        } else {
+            cbRequestToQuotation({ source: 'custom', id: b.id });
+        }
     }
     function cbDelete(i) {
         const b = window._cbRows[i].ref; if (!confirm(`Delete ${b.docNumber}? This cannot be undone.`)) return;

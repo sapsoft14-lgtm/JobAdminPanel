@@ -4834,7 +4834,10 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
         <div class="totals-box">
             <div class="totals-row total-row"><span>Total</span><span>${money(total)}</span></div>
             ${inv.isQuote ? (inv.validUntil ? `<div class="totals-row"><span>Valid Until</span><span>${esc(inv.validUntil)}</span></div>` : '') : `<div class="totals-row"><span>${esc(payLabel)}</span><span>${money(amountPaid)}</span></div>
-            <div class="totals-row balance-row"><span>Balance</span><span>${money(balance)}</span></div>`}
+            <div class="totals-row balance-row"><span>Balance</span><span>${money(balance)}</span></div>
+            ${Number(inv.prevOutstanding || 0) > 0 ? `<div class="totals-row" style="color:#b91c1c; font-weight:800;"><span>Previous Outstanding</span><span>${money(inv.prevOutstanding)}</span></div>
+            <div class="totals-row total-row"><span>Total Due</span><span>${money(balance + Number(inv.prevOutstanding))}</span></div>
+            <div style="font-size:7.5px; color:#b91c1c; text-align:right;">Unpaid earlier bills: ${esc(inv.prevOutstandingRefs)}</div>` : ''}`}
         </div>
 
         ${inv.notes ? `<p style="margin-top:9px; font-size:9px; color:#475569;"><strong>Note:</strong> ${esc(inv.notes)}</p>` : ''}
@@ -4896,7 +4899,39 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
     // Print or Save as PDF — see openAndBuild below. Used by both the
     // Invoices tab's "Print" link and the "Save & Print" flow in
     // saveInvoiceSubmit below.
+    // Finds unpaid balances on this customer's EARLIER bills (job invoices + custom bills,
+    // quotations excluded) so the printed invoice can show "Previous Outstanding".
+    async function withPrevOutstanding_(inv) {
+        try {
+            const key = String(inv.mobile || '').replace(/\D/g, '').replace(/^0+/, '').replace(/^94/, '');
+            if (!key || inv.isQuote) return inv;
+            if (!allInvoicesList.length) {
+                const d = await fetch(`${WEB_APP_URL}?action=getInvoicesList`).then(r => r.json());
+                allInvoicesList = d.invoices || [];
+            }
+            const cb = await fetch(`${WEB_APP_URL}?action=getCustomerBills&mobile=${encodeURIComponent(inv.mobile)}`).then(r => r.json());
+            const norm = m => String(m || '').replace(/\D/g, '').replace(/^0+/, '').replace(/^94/, '');
+            const refTime = new Date(inv.invoiceDate || inv.createdDate || Date.now()).getTime();
+            const earlier = (d) => { const t = new Date(d).getTime(); return !isNaN(t) && t < refTime; };
+            const pending = [];
+            allInvoicesList.forEach(i => {
+                if (norm(i.mobile) !== key || (!inv.isCustom && String(i.invoiceNum) === String(inv.invoiceNum))) return;
+                if (Number(i.balance) > 0.009 && earlier(i.createdDate)) pending.push({ ref: '#' + i.invoiceNum, bal: Number(i.balance) });
+            });
+            ((cb && cb.bills) || []).forEach(b => {
+                if (b.docType === 'Quotation' || (inv.isCustom && String(b.id) === String(inv.id))) return;
+                if (Number(b.balance) > 0.009 && earlier(b.createdDate)) pending.push({ ref: b.docNumber, bal: Number(b.balance) });
+            });
+            inv.prevOutstanding = pending.reduce((sum, x) => sum + x.bal, 0);
+            inv.prevOutstandingRefs = pending.map(x => x.ref).join(', ');
+        } catch (e) { /* never block printing */ }
+        return inv;
+    }
+
     function presentInvoiceChoice(inv) {
+        withPrevOutstanding_(inv).then(presentInvoiceChoiceNow_);
+    }
+    function presentInvoiceChoiceNow_(inv) {
         openActionChoice({
             icon: '🧾',
             title: `Invoice #${inv.invoiceNum || ''}`,
@@ -5083,9 +5118,11 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
         return Object.assign({}, b, { invoiceNum: b.docNumber, isCustom: true, isQuote: q, docTitle: q ? 'Quotation' : 'Customer Bill', docLabel: q ? 'Quotation Number' : 'Bill Number' });
     }
     function cbPrintRow(i) {
-        const inv = cbToPrintable(window._cbRows[i]);
-        if (inv.isCustom) openActionChoice({ icon: inv.isQuote ? '📝' : '🧾', title: `${inv.docTitle} ${inv.invoiceNum}`, subtitle: 'Choose how you\u2019d like to deliver this document', pdfFilename: `${inv.docNumber}.pdf`, openAndBuild: () => printInvoiceWindow(inv, null, false), whatsappNumber: inv.mobile, whatsappMessage: `Hello ${inv.customerName || ''}, your ${inv.docTitle.toLowerCase()} ${inv.docNumber} totals ${cbMoney(inv.total)}. - ${COMPANY_INFO.name}` });
-        else presentInvoiceChoice(inv);
+        const inv0 = cbToPrintable(window._cbRows[i]);
+        if (!inv0.isCustom) { presentInvoiceChoice(inv0); return; }
+        (inv0.isQuote ? Promise.resolve(inv0) : withPrevOutstanding_(inv0)).then(inv => {
+        openActionChoice({ icon: inv.isQuote ? '📝' : '🧾', title: `${inv.docTitle} ${inv.invoiceNum}`, subtitle: 'Choose how you\u2019d like to deliver this document', pdfFilename: `${inv.docNumber}.pdf`, openAndBuild: () => printInvoiceWindow(inv, null, false), whatsappNumber: inv.mobile, whatsappMessage: `Hello ${inv.customerName || ''}, your ${inv.docTitle.toLowerCase()} ${inv.docNumber} totals ${cbMoney(inv.total)}${inv.prevOutstanding > 0 ? ` (previous outstanding ${cbMoney(inv.prevOutstanding)})` : ''}. - ${COMPANY_INFO.name}` });
+        });
     }
     // Statement: every invoice + custom bill for the selected customer on one printable sheet.
     function cbPrintStatement() {

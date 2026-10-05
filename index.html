@@ -990,7 +990,7 @@ body.dark-mode .bulk-item-row-header { color: #c7d2fe; }
                 <option value="handoverDesc">Sort: Handover Date (Newest First)</option>
                 <option value="handoverAsc">Sort: Handover Date (Oldest First)</option>
             </select>
-            <button id="syncPipelineBtn" onclick="fetchLivePipelineData()" aria-label="Sync pipeline data" style="background:#64748b; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; width: 100%; transition: opacity .15s;">🔄 Sync</button>
+            <button id="syncPipelineBtn" onclick="fetchLivePipelineData({ force: true })" aria-label="Sync pipeline data" style="background:#64748b; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; width: 100%; transition: opacity .15s;">🔄 Sync</button>
         </div>
 
         <div style="display:flex; align-items:center; justify-content:flex-end; gap:14px; margin:-10px 0 16px; font-size:11px; color:#94a3b8;">
@@ -1639,12 +1639,40 @@ body.dark-mode .bulk-item-row-header { color: #c7d2fe; }
                 <span onclick="${removeFnName}(${idx})" role="button" tabindex="0" title="Remove photo" style="position:absolute; top:-6px; right:-6px; background:#ef4444; color:white; border-radius:50%; width:16px; height:16px; font-size:10px; line-height:16px; text-align:center; cursor:pointer; font-weight:bold;">×</span>
             </div>`).join('');
     }
+    // Shrinks a photo (max side `maxDim`px, JPEG `quality`) before upload so every later view
+    // downloads a few hundred KB instead of several MB. Falls back to the original on any error.
+    function compressImageToDataUrl_(file, maxDim, quality) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onerror = () => resolve(null);
+            reader.onload = function (e) {
+                const original = e.target.result;
+                const img = new Image();
+                img.onerror = () => resolve(original);
+                img.onload = function () {
+                    try {
+                        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+                        const w = Math.max(1, Math.round(img.width * scale)), h = Math.max(1, Math.round(img.height * scale));
+                        const canvas = document.createElement('canvas');
+                        canvas.width = w; canvas.height = h;
+                        const ctx = canvas.getContext('2d');
+                        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h);
+                        ctx.drawImage(img, 0, 0, w, h);
+                        const out = canvas.toDataURL('image/jpeg', quality);
+                        resolve(out && out.length < original.length ? out : original);
+                    } catch (err) { resolve(original); }
+                };
+                img.src = original;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
     function readImagesToBase64(fileList, onEachReady) {
         Array.from(fileList || []).forEach((file) => {
             if (!file.type.startsWith('image/')) return;
-            const reader = new FileReader();
-            reader.onload = function(e) { onEachReady({ base64: e.target.result, name: file.name }); };
-            reader.readAsDataURL(file);
+            compressImageToDataUrl_(file, 1600, 0.72).then((dataUrl) => {
+                if (dataUrl) onEachReady({ base64: dataUrl, name: file.name });
+            });
         });
     }
 
@@ -1931,6 +1959,7 @@ function createJitteredPoller(fn, baseMs, jitterMs) {
 
     const PIPELINE_SNAPSHOT_KEY = 'sap_pipeline_snapshot';
     const PIPELINE_SNAPSHOT_MAX_AGE_MS = 15000; // don't hit the network if we already have data this fresh
+    let pipelineEtag = ''; // last pipeline ETag from the server
     let pipelineFetchInFlight = null; // de-dupes overlapping calls (e.g. a poller tick landing on top of a manual Sync click)
 
     function fetchLivePipelineData(opts) {
@@ -1965,8 +1994,14 @@ function createJitteredPoller(fn, baseMs, jitterMs) {
         }
         // ────────────────────────────────────────────────────────────────
 
-        pipelineFetchInFlight = fetch(`${WEB_APP_URL}?action=getAdminPipeline`).then(res => res.json()).then(data => {
-            if(data.success) {
+        // Sends the last ETag; if nothing changed the server answers with a tiny {notModified:true}
+        // instead of the whole job list. Manual Sync / Update Data always force a full download.
+        const etagParam = (!opts.force && pipelineEtag && jobsCacheArray.length) ? `&etag=${encodeURIComponent(pipelineEtag)}` : '';
+        pipelineFetchInFlight = fetch(`${WEB_APP_URL}?action=getAdminPipeline${etagParam}`).then(res => res.json()).then(data => {
+            if (data.success && data.notModified) {
+                updateLastSyncedLabel();
+            } else if(data.success) {
+                if (data.etag) pipelineEtag = data.etag;
                 jobsCacheArray = data.jobs;
                 saveSessionSnapshot(PIPELINE_SNAPSHOT_KEY, data.jobs);
                 renderPipelineTable();
@@ -2661,15 +2696,17 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
         return Number(localStorage.getItem(NOTIF_DISMISS_KEY)) || 0;
     }
 
+    let notifEtag = ''; // last notifications ETag from the server
     let notifFetchInFlight = null; // de-dupes overlapping calls (e.g. opening the bell right as the poller ticks)
 
     // Initial/refresh load — always resets back to the first (most recent) page.
     function fetchNotifications() {
         if (notifFetchInFlight) return notifFetchInFlight;
-        notifFetchInFlight = fetch(`${WEB_APP_URL}?action=getNotifications&limit=${NOTIF_PAGE_SIZE}&offset=0`)
+        notifFetchInFlight = fetch(`${WEB_APP_URL}?action=getNotifications&limit=${NOTIF_PAGE_SIZE}&offset=0${(notifEtag && notifFeedCache.length) ? '&etag=' + encodeURIComponent(notifEtag) : ''}`)
         .then(res => res.json())
         .then(data => {
-            if (data.success) {
+            if (data.success && !data.notModified) {
+                if (data.etag) notifEtag = data.etag;
                 notifFeedCache = data.notifications;
                 // Backend may not know about paging yet — if it ignores limit/offset
                 // and just returns everything, treat that as "no more pages".
@@ -2950,7 +2987,7 @@ ${job.totalPrice ? `<br><span style="font-size:11px;color:#059669;font-weight:80
     function hcBuildComment(jobNum, log) {
         const me = (currentUsername || '').toLowerCase();
         let thumbsHtml = "";
-        (log.images || []).forEach(url => { if (url) thumbsHtml += `<img src="${url}" class="admin-thumb" onclick="launchAdminLightbox('${url}')" onerror="this.src='https://cdn-icons-png.flaticon.com/512/13434/13434972.png'">`; });
+        (log.images || []).forEach(url => { if (url) thumbsHtml += `<img src="${url}" loading="lazy" decoding="async" class="admin-thumb" onclick="launchAdminLightbox('${url}')" onerror="this.src='https://cdn-icons-png.flaticon.com/512/13434/13434972.png'">`; });
 
         const canManage = isCurrentUserSuperAdmin && log.id !== undefined && log.id !== null;
         const tools = canManage ? `
@@ -5387,14 +5424,13 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
         const file = event.target.files[0];
         if (!file) return;
         if (!file.type.startsWith('image/')) { alert('Please choose an image file.'); event.target.value = ""; return; }
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            selectedProfilePicBase64A = e.target.result;
+        compressImageToDataUrl_(file, 500, 0.8).then(function(dataUrl) {
+            if (!dataUrl) return;
+            selectedProfilePicBase64A = dataUrl;
             const previewImg = document.getElementById('profilePicPreviewImgA');
             const previewFallback = document.getElementById('profilePicPreviewFallbackA');
             previewImg.src = selectedProfilePicBase64A; previewImg.style.display = 'block'; previewFallback.style.display = 'none';
-        };
-        reader.readAsDataURL(file);
+        });
     }
 
     function submitProfileUpdateA() {
@@ -6503,7 +6539,7 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
         const btn = $('anUpdateDataBtn');
         const original = btn ? btn.innerHTML : null;
         if (btn) { btn.disabled = true; btn.style.opacity = '0.7'; btn.innerHTML = '<span class="btn-spinner"></span>Updating...'; }
-        fetchLivePipelineData().then(() => {
+        fetchLivePipelineData({ force: true }).then(() => {
             renderAnalytics();
         }).finally(() => {
             if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.innerHTML = original; }

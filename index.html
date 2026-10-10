@@ -674,6 +674,7 @@ body.dark-mode .bulk-item-row-header { color: #c7d2fe; }
             </label>
             🖥️ Desktop Alerts
         </div>
+        <button type="button" class="btn-urgent-req" id="urgReqBtn" style="display:none;" onclick="urgOpenReq()" title="Technician urgent order requests awaiting your approval">🚨 Urgent Requests <span class="urg-badge">0</span></button>
         <div class="notif-bell-wrap">
             <button type="button" class="btn-notif-bell" onclick="toggleNotifPanel()" aria-label="View recent job update notifications">🔔 <span class="notif-badge" id="notifBadge" style="display:none;">0</span></button>
             <div class="notif-panel" id="notifPanel" style="display:none;">
@@ -2168,12 +2169,16 @@ function createJitteredPoller(fn, baseMs, jitterMs) {
             const pct = maxCount > 0 ? Math.round((count / maxCount) * 100) : 0;
             const barColor = name === 'Unassigned' ? '#ea580c' : '#059669';
             const safeName = name.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const urgAttr = name === 'Unassigned' ? '' : ` data-urg-tech="${safeName.replace(/"/g, '&quot;')}"`;
+            const urgCls = name === 'Unassigned' ? '' : ' urg-link';
+            const urgTitle = name === 'Unassigned' ? safeName : `${safeName} — click to manage urgent orders`;
             return `<div class="wschart-row">
-                <span class="wschart-label" title="${safeName}">${safeName}</span>
+                <span class="wschart-label${urgCls}"${urgAttr} title="${urgTitle}">${safeName}</span>
                 <div class="wschart-track"><div class="wschart-fill" style="width:${pct}%; background:${barColor};"></div></div>
                 <span class="wschart-value">${count}</span>
             </div>`;
         }).join('');
+        if (typeof window.urgentDecorateTechChart === 'function') window.urgentDecorateTechChart();
     }
 
     // ── "Oldest Jobs in Queue" slideshow (NEW) ──────────────────────────────
@@ -5370,6 +5375,7 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
         if (superAdminOverrideFields) superAdminOverrideFields.style.display = isCurrentUserSuperAdmin ? '' : 'none';
 
         initDashboardData();
+        if (typeof window.urgentAdminInit === 'function') window.urgentAdminInit();
     }
 
     function logoutAdmin() {
@@ -6595,5 +6601,344 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
 })();
 </script>
 <!-- ══════════ END ANALYTICS ══════════ -->
+<!-- ════════════════════════════════════════════════════════════════════════
+     URGENT ORDERS (admin) — added feature. Self-contained: styles, popups, logic.
+     • Click a technician name in "Jobs by Technician" → manage that technician's urgent list
+     • "🚨 Urgent Requests" button → approve / reject technician requests (auto-pops on new request)
+     ════════════════════════════════════════════════════════════════════════ -->
+<style>
+    .urg-link { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+    .urg-link:hover { color: #dc2626 !important; }
+    .urg-count-chip { display:inline-block; margin-left:5px; padding:0 6px; border-radius:9px; background:#dc2626; color:#fff; font-size:10px; font-weight:800; line-height:16px; }
+    .btn-urgent-req { position:relative; background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; padding:7px 12px; border-radius:6px; cursor:pointer; font-weight:bold; font-size:13px; }
+    .btn-urgent-req.has-pending { animation: urgPulse 1.6s infinite; }
+    @keyframes urgPulse { 0%,100% { box-shadow:0 0 0 0 rgba(220,38,38,.55); } 50% { box-shadow:0 0 0 6px rgba(220,38,38,0); } }
+    .btn-urgent-req .urg-badge { display:none; position:absolute; top:-8px; right:-8px; background:#dc2626; color:#fff; border-radius:10px; font-size:10px; padding:1px 6px; font-weight:800; }
+    body.dark-mode .btn-urgent-req { background:#3b1219; color:#fca5a5; border-color:#7f1d1d; }
+    .urg-overlay { display:none; position:fixed; z-index:10050; inset:0; background:rgba(15,23,42,.6); align-items:flex-start; justify-content:center; overflow-y:auto; padding:30px 12px; }
+    .urg-box { background:#fff; color:#0f172a; border-radius:12px; width:100%; max-width:720px; padding:20px; box-shadow:0 14px 34px rgba(0,0,0,.3); }
+    body.dark-mode .urg-box { background:#1e293b; color:#e2e8f0; }
+    .urg-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+    .urg-head h2 { margin:0; border:none; padding:0; font-size:18px; }
+    .urg-x { cursor:pointer; font-size:24px; font-weight:900; color:#94a3b8; line-height:1; }
+    .urg-sec { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.5px; color:#64748b; margin:14px 0 6px; }
+    .urg-row { display:flex; gap:10px; align-items:center; padding:9px 10px; border:1px solid #fecaca; background:#fef2f2; border-radius:8px; margin-bottom:6px; }
+    body.dark-mode .urg-row { background:#2a1218; border-color:#7f1d1d; }
+    .urg-rank { flex-shrink:0; background:#dc2626; color:#fff; font-weight:800; font-size:12px; border-radius:6px; padding:4px 8px; }
+    .urg-info { flex:1; min-width:0; font-size:13px; }
+    .urg-info .urg-sub { font-size:11px; color:#b91c1c; margin-top:2px; }
+    .urg-acts { display:flex; gap:4px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
+    .urg-mini { border:1px solid #cbd5e1; background:#fff; color:#0f172a; border-radius:5px; padding:3px 8px; cursor:pointer; font-size:12px; font-weight:700; }
+    body.dark-mode .urg-mini { background:#0f172a; color:#e2e8f0; border-color:#475569; }
+    .urg-mini:disabled { opacity:.35; cursor:default; }
+    .urg-mini.danger { color:#dc2626; }
+    .urg-mini.ok { background:#059669; color:#fff; border-color:#059669; }
+    .urg-mini.bad { background:#dc2626; color:#fff; border-color:#dc2626; }
+    .urg-empty { text-align:center; color:#94a3b8; padding:14px; font-size:13px; border:1px dashed #cbd5e1; border-radius:8px; }
+    .urg-add { display:flex; gap:6px; flex-wrap:wrap; }
+    .urg-add input, .urg-add select, .urg-acts select { padding:7px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; background:#fff; color:#0f172a; }
+    body.dark-mode .urg-add input, body.dark-mode .urg-add select, body.dark-mode .urg-acts select { background:#0f172a; color:#e2e8f0; border-color:#475569; }
+    .urg-add select { flex:1; min-width:200px; }
+    .urg-foot { display:flex; gap:8px; justify-content:flex-end; margin-top:14px; align-items:center; flex-wrap:wrap; }
+    .urg-foot .urg-dirty { margin-right:auto; font-size:12px; color:#b45309; font-weight:700; }
+    .urg-primary { background:#dc2626; color:#fff; border:none; padding:9px 16px; border-radius:6px; cursor:pointer; font-weight:800; }
+    .urg-primary:disabled { opacity:.5; cursor:default; }
+    .urg-secondary { background:#e2e8f0; color:#0f172a; border:none; padding:9px 14px; border-radius:6px; cursor:pointer; font-weight:700; }
+    .urg-req { border:1px solid #fcd34d; background:#fffbeb; border-radius:10px; padding:12px; margin-bottom:10px; font-size:13px; }
+    body.dark-mode .urg-req { background:#2a2110; border-color:#854d0e; }
+    .urg-req .urg-req-top { display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; font-weight:800; margin-bottom:6px; }
+    .urg-req .urg-req-meta { font-size:11px; color:#64748b; font-weight:600; }
+    .urg-tag { display:inline-block; font-size:10px; font-weight:800; padding:1px 6px; border-radius:8px; margin-left:4px; }
+    .urg-tag.new { background:#dcfce7; color:#166534; } .urg-tag.rm { background:#fee2e2; color:#991b1b; }
+    .urg-req ol { margin:4px 0 8px 18px; padding:0; } .urg-req li { margin:2px 0; }
+    .urg-req-actions { display:flex; gap:6px; justify-content:flex-end; margin-top:8px; }
+</style>
+
+<!-- Per-technician urgent list popup -->
+<div class="urg-overlay" id="urgTechOverlay" onclick="if(event.target===this)urgCloseTech()">
+    <div class="urg-box">
+        <div class="urg-head"><h2 id="urgTechTitle">🚨 Urgent Orders</h2><span class="urg-x" onclick="urgCloseTech()">×</span></div>
+        <div id="urgTechBody"></div>
+    </div>
+</div>
+<!-- Approval inbox popup -->
+<div class="urg-overlay" id="urgReqOverlay" onclick="if(event.target===this)urgCloseReq()">
+    <div class="urg-box">
+        <div class="urg-head"><h2>🚨 Urgent Order Requests</h2><span class="urg-x" onclick="urgCloseReq()">×</span></div>
+        <div id="urgReqBody"></div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const URG = { orders: [], requests: [], techs: [], tech: '', draft: [], dirty: false, techModalOpen: false, reqModalOpen: false, started: false, seenMax: 0, busy: false };
+    const SEEN_KEY = 'sap_urg_seen_req';
+    try { URG.seenMax = Number(localStorage.getItem(SEEN_KEY)) || 0; } catch (e) {}
+
+    const esc = (s) => (s === null || s === undefined) ? '' : String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    const same = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+    const pad = (n) => String(n).padStart(2, '0');
+    const $ = (id) => document.getElementById(id);
+    // Everyone who signs in to the Admin Panel can grant / manage urgent orders directly.
+    const isSA = () => true;
+    let errShown = false;
+    function reportErr(what, d) { if (errShown) return; errShown = true; if (typeof showToast === 'function') showToast('Urgent orders: ' + what + ' — ' + ((d && d.error) || 'no response') + '. Check that 0005_urgent_orders.sql was run and the latest shop-api is deployed.', 'error', 12000); }
+    const getJson = (qs) => fetch(`${WEB_APP_URL}?${qs}`).then(r => r.json());
+    const post = (body) => fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(body) }).then(r => r.json());
+    const jobsArr = () => (typeof jobsCacheArray !== 'undefined' && Array.isArray(jobsCacheArray)) ? jobsCacheArray : [];
+
+    function jobInfo(n) {
+        const j = jobsArr().find(x => String(x.jobNum) === String(n));
+        if (j) return { jobNum: j.jobNum, itemType: j.itemType, model: j.model, customer: j.customer, fault: j.fault, status: j.status, tech: j.tech, handed: !!j.isHandedOver };
+        const o = URG.orders.find(x => String(x.jobNum) === String(n));
+        return o ? { jobNum: o.jobNum, itemType: o.itemType, model: o.model, customer: o.customer, fault: o.fault, status: o.status, tech: o.tech, handed: false } : { jobNum: n, itemType: '', model: '', customer: '', fault: '', status: '', tech: '', handed: false };
+    }
+    const jobLine = (i) => `<b>#${esc(i.jobNum)}</b> ${esc(i.itemType)} ${i.model ? '<span style="color:#0891b2;">[' + esc(i.model) + ']</span>' : ''} <span style="color:#64748b;">— ${esc(i.customer)}</span>`;
+    const ordersFor = (tech) => URG.orders.filter(o => same(o.tech, tech)).sort((a, b) => a.rank - b.rank);
+
+    // ── data ────────────────────────────────────────────────────────────
+    async function loadOrders() {
+        try { const d = await getJson('action=getUrgentOrders'); if (d.success) URG.orders = d.orders || []; else reportErr('could not load list', d); } catch (e) { reportErr('network error', null); }
+        refreshTechChartCounts();
+    }
+    async function loadRequests() {
+        try {
+            const d = await getJson('action=getUrgentRequests&status=pending');
+            if (d.success) URG.requests = d.requests || []; else { reportErr('could not load requests', d); return; }
+        } catch (e) { return; }
+        if (!isSA()) { if (URG.techModalOpen && !URG.dirty) renderTech(); return; }
+        updateReqButton();
+        const maxId = URG.requests.reduce((m, r) => Math.max(m, r.id), 0);
+        if (maxId > URG.seenMax) {
+            const fresh = URG.requests.filter(r => r.id > URG.seenMax);
+            URG.seenMax = maxId;
+            try { localStorage.setItem(SEEN_KEY, String(maxId)); } catch (e) {}
+            if (fresh.length) {
+                if (typeof showToast === 'function') showToast(`🚨 ${fresh.length} new urgent order request${fresh.length > 1 ? 's' : ''} from technician${fresh.length > 1 ? 's' : ''}.`, 'info', 7000);
+                if (!URG.techModalOpen) openReq();
+            }
+        }
+        if (URG.reqModalOpen) renderReq();
+        if (URG.techModalOpen && !URG.dirty) renderTech();
+    }
+    async function loadTechs() {
+        try { const d = await getJson('action=getTechniciansList'); if (d.success) URG.techs = d.technicians || []; } catch (e) {}
+    }
+
+    // ── chart integration: clickable names + urgent count chip ─────────────
+    function refreshTechChartCounts() {
+        const box = $('techChartBars'); if (!box) return;
+        box.querySelectorAll('.wschart-label[data-urg-tech]').forEach(el => {
+            const t = el.getAttribute('data-urg-tech');
+            const n = ordersFor(t).length;
+            const chip = el.querySelector('.urg-count-chip');
+            if (n && !chip) el.insertAdjacentHTML('beforeend', `<span class="urg-count-chip" title="${n} urgent order(s)">🚨${n}</span>`);
+            else if (n && chip) chip.textContent = '🚨' + n;
+            else if (!n && chip) chip.remove();
+        });
+    }
+    // Called by renderTechChart after it draws the rows.
+    window.urgentDecorateTechChart = function () { refreshTechChartCounts(); };
+    window.urgentOpenTech = function (name) { openTech(name); };
+
+    // ── per-technician popup ───────────────────────────────────────────────
+    function openTech(name) {
+        if (!name || name === 'Unassigned') return;
+        URG.tech = name; URG.techModalOpen = true; URG.dirty = false;
+        URG.draft = ordersFor(name).map(o => o.jobNum);
+        $('urgTechTitle').textContent = '🚨 Urgent Orders — ' + name;
+        $('urgTechOverlay').style.display = 'flex';
+        renderTech();
+        loadOrders().then(() => { if (URG.techModalOpen && !URG.dirty) { URG.draft = ordersFor(URG.tech).map(o => o.jobNum); renderTech(); } });
+        if (!URG.techs.length) loadTechs().then(() => { if (URG.techModalOpen) renderTech(); });
+        loadRequests();
+    }
+    function closeTech() {
+        if (URG.dirty && !confirm('You have unsaved urgent list changes. Close without saving?')) return;
+        URG.techModalOpen = false; URG.dirty = false; $('urgTechOverlay').style.display = 'none';
+    }
+    function renderTech() {
+        const sa = true; // every admin-panel login can edit; non-Super-Admin changes go to approval
+        const isSup = isSA();
+        const list = URG.draft;
+        const rows = list.map((n, i) => {
+            const info = jobInfo(n);
+            const others = URG.techs.filter(t => !same(t, URG.tech));
+            return `<div class="urg-row">
+                <span class="urg-rank">#${pad(i + 1)}</span>
+                <div class="urg-info">${jobLine(info)}<div class="urg-sub">⚠️ ${esc(info.fault) || 'No fault noted'} · ${esc(info.status)}</div></div>
+                ${sa ? `<div class="urg-acts">
+                    <button class="urg-mini" data-urg="up" data-i="${i}" ${i === 0 ? 'disabled' : ''} title="Move up">▲</button>
+                    <button class="urg-mini" data-urg="down" data-i="${i}" ${i === list.length - 1 ? 'disabled' : ''} title="Move down">▼</button>
+                    <select id="urgMoveSel-${esc(n)}"><option value="">Move to…</option>${others.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('')}</select>
+                    <button class="urg-mini" data-urg="move" data-job="${esc(n)}" title="${isSup ? 'Reassign this urgent job to the selected technician now' : 'Ask a Super Admin to reassign this job'}">${isSup ? '👤 Go' : '📨 Request'}</button>
+                    <button class="urg-mini danger" data-urg="rm" data-i="${i}" title="Remove from urgent list">✕</button>
+                </div>` : ''}
+            </div>`;
+        }).join('');
+
+        const eligible = jobsArr().filter(j => same(j.tech, URG.tech) && !j.isHandedOver && !list.some(n => String(n) === String(j.jobNum)))
+            .sort((a, b) => b.jobNum - a.jobNum);
+        const pend = URG.requests.filter(r => same(r.tech, URG.tech));
+
+        $('urgTechBody').innerHTML = `
+            ${isSup ? '' : '<div class="urg-empty" style="margin-bottom:10px;">Your changes are sent to a Super Admin for approval before the urgent list changes.</div>'}
+            <div class="urg-sec">Urgent list (top = most urgent)</div>
+            ${rows || '<div class="urg-empty">No urgent orders for this technician.</div>'}
+            ${sa ? `
+            <div class="urg-sec">Grant a new urgent order</div>
+            <div class="urg-add">
+                <input type="text" id="urgFilter" placeholder="Filter job #, item, customer…" oninput="urgFilterAdd()">
+                <select id="urgAddSel">${eligible.map(j => `<option value="${esc(j.jobNum)}" data-t="${esc((j.jobNum + ' ' + j.itemType + ' ' + j.model + ' ' + j.customer).toLowerCase())}">#${esc(j.jobNum)} · ${esc(j.itemType)} ${esc(j.model)} · ${esc(j.customer)} (${esc(j.status)})</option>`).join('') || '<option value="">No more active jobs for this technician</option>'}</select>
+                <button class="urg-mini ok" data-urg="add">＋ Add</button>
+            </div>` : ''}
+            ${pend.length ? `<div class="urg-sec">Pending technician requests</div>${pend.map(reqCardHtml).join('')}` : ''}
+            ${isSup ? '' : '<div class="urg-sec">Note for Super Admin (optional)</div><input type="text" id="urgNote" maxlength="300" placeholder="Why is this urgent?" style="width:100%; padding:7px; border:1px solid #cbd5e1; border-radius:6px;">'}
+            <div class="urg-foot">
+                ${URG.dirty ? `<span class="urg-dirty">● ${isSup ? 'Unsaved changes' : 'Not sent yet'}</span>` : ''}
+                <button class="urg-secondary" onclick="urgCloseTech()">Close</button>
+                <button class="urg-primary" id="urgSaveBtn" data-urg="save" ${URG.dirty ? '' : 'disabled'}>${isSup ? '💾 Save urgent list' : '📨 Send for approval'}</button>
+            </div>`;
+    }
+    window.urgFilterAdd = function () {
+        const q = ($('urgFilter').value || '').toLowerCase().trim(); const sel = $('urgAddSel'); let first = null;
+        Array.from(sel.options).forEach(o => { const hit = !q || (o.getAttribute('data-t') || '').includes(q); o.hidden = !hit; if (hit && first === null) first = o; });
+        if (first) sel.value = first.value;
+    };
+    $('urgTechBody').addEventListener('click', async (ev) => {
+        const b = ev.target.closest('[data-urg]'); if (!b || b.disabled) return;
+        const act = b.getAttribute('data-urg'); const i = Number(b.getAttribute('data-i'));
+        if (act === 'up' && i > 0) { [URG.draft[i - 1], URG.draft[i]] = [URG.draft[i], URG.draft[i - 1]]; URG.dirty = true; renderTech(); }
+        else if (act === 'down' && i < URG.draft.length - 1) { [URG.draft[i + 1], URG.draft[i]] = [URG.draft[i], URG.draft[i + 1]]; URG.dirty = true; renderTech(); }
+        else if (act === 'rm') { URG.draft.splice(i, 1); URG.dirty = true; renderTech(); }
+        else if (act === 'add') {
+            const v = $('urgAddSel').value; if (!v) return;
+            URG.draft.push(Number(v)); URG.dirty = true; renderTech();
+        }
+        else if (act === 'save') { await saveList(); }
+        else if (act === 'move') { await moveJob(b.getAttribute('data-job')); }
+        else if (act === 'approve' || act === 'reject') { await decide(Number(b.getAttribute('data-id')), act); }
+    });
+    async function saveList() {
+        if (URG.busy) return; URG.busy = true;
+        const btn = $('urgSaveBtn'); if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+        try {
+            const sup = isSA();
+            const d = sup
+                ? await post({ action: 'setUrgentList', requester: currentUsername, tech: URG.tech, jobNums: URG.draft })
+                : await post({ action: 'requestUrgentChange', requester: currentUsername, kind: 'list', tech: URG.tech, jobNums: URG.draft, note: ($('urgNote') || {}).value || '' });
+            if (!d.success) throw new Error(d.error || 'Save failed');
+            showToast(sup ? `Urgent list saved for ${URG.tech}.` : 'Sent to a Super Admin for approval.', 'success');
+            if (sup && d.dropped && d.dropped.length) showToast('Not saved (job not in this technician\'s active jobs): ' + d.dropped.join(', '), 'error', 8000);
+            URG.dirty = false;
+            await Promise.all([loadOrders(), loadRequests()]); URG.draft = ordersFor(URG.tech).map(o => o.jobNum); renderTech();
+        } catch (e) { showToast('Could not save: ' + e.message, 'error'); renderTech(); }
+        URG.busy = false;
+    }
+    async function moveJob(jobNum) {
+        const sel = $('urgMoveSel-' + jobNum); const target = sel ? sel.value : '';
+        if (!target) { showToast('Choose a technician in the “Move to…” box first.', 'error'); return; }
+        const sup = isSA();
+        if (!confirm(sup ? `Reassign job #${jobNum} to ${target}? It becomes their urgent order and leaves ${URG.tech}'s list.` : `Ask a Super Admin to move job #${jobNum} to ${target}?`)) return;
+        if (URG.busy) return; URG.busy = true;
+        try {
+            const d = sup
+                ? await post({ action: 'adminChangeUrgentTech', requester: currentUsername, jobNum: Number(jobNum), newTech: target })
+                : await post({ action: 'requestUrgentChange', requester: currentUsername, kind: 'change_tech', tech: URG.tech, jobNum: Number(jobNum), newTech: target, note: ($('urgNote') || {}).value || '' });
+            if (!d.success) throw new Error(d.error || 'Move failed');
+            showToast(sup ? `Job #${jobNum} moved to ${target}.` : 'Change request sent to a Super Admin.', 'success');
+            if (!sup) { await loadRequests(); renderTech(); URG.busy = false; return; }
+            URG.draft = URG.draft.filter(n => String(n) !== String(jobNum));
+            await loadOrders();
+            if (typeof fetchLivePipelineData === 'function') fetchLivePipelineData({ force: true });
+            renderTech();
+        } catch (e) { showToast('Could not move: ' + e.message, 'error'); }
+        URG.busy = false;
+    }
+
+    // ── approval inbox ────────────────────────────────────────────────────
+    function reqCardHtml(r) {
+        const meta = `<span class="urg-req-meta">${esc(r.requestedBy)} · ${esc(r.createdAtText)}</span>`;
+        let body = '';
+        if (r.kind === 'change_tech') {
+            const info = jobInfo(r.jobNum);
+            body = `<div>Move urgent job ${jobLine(info)} from <b>${esc(r.tech)}</b> → <b>${esc(r.newTech)}</b></div>`;
+        } else {
+            const cur = ordersFor(r.tech).map(o => o.jobNum);
+            const prop = r.jobNums || [];
+            const removed = cur.filter(n => !prop.map(String).includes(String(n)));
+            body = `<div>Proposed urgent list for <b>${esc(r.tech)}</b>:</div>
+                ${prop.length ? '<ol>' + prop.map(n => `<li>${jobLine(jobInfo(n))}${cur.map(String).includes(String(n)) ? '' : '<span class="urg-tag new">NEW</span>'}</li>`).join('') + '</ol>' : '<div class="urg-empty" style="margin:6px 0;">Clear the whole urgent list</div>'}
+                ${removed.length ? `<div style="font-size:12px;">Removed: ${removed.map(n => `<span class="urg-tag rm">#${esc(n)}</span>`).join(' ')}</div>` : ''}`;
+        }
+        return `<div class="urg-req">
+            <div class="urg-req-top"><span>${r.kind === 'change_tech' ? '👤 Change technician' : '📋 Update urgent list'} — ${esc(r.tech)}</span>${meta}</div>
+            ${body}
+            ${r.note ? `<div style="margin-top:6px; font-size:12px;"><i>“${esc(r.note)}”</i></div>` : ''}
+            ${isSA() ? `<div class="urg-req-actions">
+                <button class="urg-mini bad" data-urg="reject" data-id="${r.id}">✕ Reject</button>
+                <button class="urg-mini ok" data-urg="approve" data-id="${r.id}">✓ Approve</button>
+            </div>` : ''}
+        </div>`;
+    }
+    function renderReq() {
+        $('urgReqBody').innerHTML = URG.requests.length
+            ? URG.requests.map(reqCardHtml).join('')
+            : '<div class="urg-empty">No pending requests. 🎉</div>';
+    }
+    function openReq() { URG.reqModalOpen = true; renderReq(); $('urgReqOverlay').style.display = 'flex'; loadOrders().then(() => { if (URG.reqModalOpen) renderReq(); }); }
+    function closeReq() { URG.reqModalOpen = false; $('urgReqOverlay').style.display = 'none'; }
+    $('urgReqBody').addEventListener('click', async (ev) => {
+        const b = ev.target.closest('[data-urg]'); if (!b || b.disabled) return;
+        await decide(Number(b.getAttribute('data-id')), b.getAttribute('data-urg'));
+    });
+    async function decide(id, act) {
+        if (URG.busy) return;
+        let note = '';
+        if (act === 'reject') { const n = prompt('Reason for rejecting (optional):'); if (n === null) return; note = n; }
+        URG.busy = true;
+        try {
+            const d = await post({ action: 'decideUrgentRequest', requester: currentUsername, requestId: id, decision: act, note });
+            if (!d.success) throw new Error(d.error || 'Failed');
+            showToast(act === 'approve' ? 'Approved — urgent list updated.' + ((d.dropped && d.dropped.length) ? ' (Skipped jobs no longer eligible: ' + d.dropped.join(', ') + ')' : '') : 'Request rejected.', act === 'approve' ? 'success' : 'info');
+            await Promise.all([loadOrders(), loadRequests()]);
+            if (typeof fetchLivePipelineData === 'function' && act === 'approve') fetchLivePipelineData({ force: true });
+            if (URG.techModalOpen && !URG.dirty) { URG.draft = ordersFor(URG.tech).map(o => o.jobNum); renderTech(); }
+            if (URG.reqModalOpen) renderReq();
+        } catch (e) { showToast('Could not update request: ' + e.message, 'error'); }
+        URG.busy = false;
+    }
+    function updateReqButton() {
+        const btn = $('urgReqBtn'); if (!btn) return;
+        const n = URG.requests.length;
+        const badge = btn.querySelector('.urg-badge');
+        badge.style.display = n ? 'block' : 'none'; badge.textContent = n;
+        btn.classList.toggle('has-pending', n > 0);
+    }
+
+    // ── startup (called from grantAccess) ────────────────────────────────────
+    window.urgentAdminInit = function () {
+        if (URG.started) return; URG.started = true;
+        loadOrders(); loadTechs();
+        if (isSA()) { const btn = $('urgReqBtn'); if (btn) btn.style.display = ''; }
+        loadRequests();
+        setInterval(() => {
+            if (document.visibilityState !== 'visible') return;
+            loadOrders();
+            if (isSA() || URG.techModalOpen) loadRequests();
+        }, 30000);
+    };
+    window.urgCloseTech = closeTech;
+    window.urgCloseReq = closeReq;
+    window.urgOpenReq = openReq;
+
+    // Event delegation for the technician chart (rows are re-rendered often)
+    document.addEventListener('click', (ev) => {
+        const el = ev.target.closest('#techChartBars .urg-link'); if (!el) return;
+        openTech(el.getAttribute('data-urg-tech'));
+    });
+})();
+</script>
+
 </body>
 </html>

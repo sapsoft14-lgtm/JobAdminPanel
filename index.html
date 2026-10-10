@@ -2460,7 +2460,7 @@ function createJitteredPoller(fn, baseMs, jitterMs) {
                 <td colspan="4" style="padding:0; border-bottom:1px solid #e2e8f0;">
                     <table class="job-card-inner" style="width:100%; border-collapse:collapse; font-size:13px;">
                         <tr>
-                            <td style="width:25%; padding:12px;"><strong>#${job.jobNum}</strong><br><span style="font-size:11px; color:#64748b;">${job.createdTime}</span></td>
+                            <td style="width:25%; padding:12px;"><strong>#${job.jobNum}</strong><br><span class="urg-job-slot" data-urg-job="${job.jobNum}">${typeof window.urgentBadgeHtml === 'function' ? window.urgentBadgeHtml(job.jobNum) : ''}</span><span style="font-size:11px; color:#64748b;">${job.createdTime}</span></td>
                             <td style="width:30%; padding:12px;">
                                 <strong>${job.itemType}</strong> (${job.customer})<br>
 
@@ -6607,6 +6607,7 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
      • "🚨 Urgent Requests" button → approve / reject technician requests (auto-pops on new request)
      ════════════════════════════════════════════════════════════════════════ -->
 <style>
+    .urg-job-badge { display:inline-block; margin:3px 0 2px; background:linear-gradient(135deg,#ef476f,#b91c1c); color:#fff; font-weight:800; font-size:10px; letter-spacing:.3px; padding:2px 8px; border-radius:999px; box-shadow:0 0 8px rgba(220,38,38,.45); }
     .urg-link { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
     .urg-link:hover { color: #dc2626 !important; }
     .urg-count-chip { display:inline-block; margin-left:5px; padding:0 6px; border-radius:9px; background:#dc2626; color:#fff; font-size:10px; font-weight:800; line-height:16px; }
@@ -6700,6 +6701,7 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
     async function loadOrders() {
         try { const d = await getJson('action=getUrgentOrders'); if (d.success) URG.orders = d.orders || []; else reportErr('could not load list', d); } catch (e) { reportErr('network error', null); }
         refreshTechChartCounts();
+        refreshJobBadges();
     }
     async function loadRequests() {
         try {
@@ -6724,6 +6726,19 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
     async function loadTechs() {
         try { const d = await getJson('action=getTechniciansList'); if (d.success) URG.techs = d.technicians || []; } catch (e) {}
     }
+
+    // ── urgent badge under the job number in the Jobs list ──────────────────
+    function badgeHtml(jobNum) {
+        const o = URG.orders.find(x => String(x.jobNum) === String(jobNum));
+        return o ? `<span class="urg-job-badge" title="Urgent order for ${esc(o.tech)}">🚨 URGENT ORDER #${pad(o.rank)}</span><br>` : '';
+    }
+    function refreshJobBadges() {
+        document.querySelectorAll('.urg-job-slot[data-urg-job]').forEach(el => {
+            const h = badgeHtml(el.getAttribute('data-urg-job'));
+            if (el.innerHTML !== h) el.innerHTML = h;
+        });
+    }
+    window.urgentBadgeHtml = badgeHtml;
 
     // ── chart integration: clickable names + urgent count chip ─────────────
     function refreshTechChartCounts() {

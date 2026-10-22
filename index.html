@@ -1352,6 +1352,7 @@ body.dark-mode .bulk-item-row-header { color: #c7d2fe; }
         <button type="button" class="btn-add-line" onclick="cbAddLine()">+ Add Item</button>
         <div class="invoice-totals-box"><div class="invoice-totals-row grand-total"><span>Total</span><span id="cbTotalOut">Rs. 0.00</span></div>
             <div class="invoice-totals-row" id="cbBalRow"><span>Balance</span><span id="cbBalOut">Rs. 0.00</span></div></div>
+        <label id="cbHideOutWrap" style="display:flex; align-items:center; gap:8px; margin-top:10px; font-size:13px; font-weight:600; color:#475569; cursor:pointer;"><input type="checkbox" id="cbHideOut" style="width:auto; margin:0;"> Hide balance / outstanding on the printed bill</label>
         <div class="row" style="margin-top:14px;">
             <div class="form-group" id="cbPaidWrap"><label>Amount Paid</label><input type="number" id="cbPaid" value="0" min="0" oninput="cbRecalc()"></div>
             <div class="form-group" id="cbMethodWrap"><label>Payment Method</label><select id="cbMethod"><option>Cash</option><option>Card</option><option>Bank Transfer</option><option>Online</option></select></div>
@@ -1422,6 +1423,7 @@ body.dark-mode .bulk-item-row-header { color: #c7d2fe; }
             <div class="invoice-totals-row"><span id="invPaidLabelOut">Cash</span><span id="invAmountPaidOut">Rs. 0.00</span></div>
             <div class="invoice-totals-row"><span>Balance</span><span id="invBalanceOut">Rs. 0.00</span></div>
         </div>
+        <label style="display:flex; align-items:center; gap:8px; margin-top:10px; font-size:13px; font-weight:600; color:#475569; cursor:pointer;"><input type="checkbox" id="invHideOut" style="width:auto; margin:0;"> Hide balance / outstanding on the printed invoice</label>
 
         <div class="row" style="margin-top:14px;">
             <div class="form-group">
@@ -4642,6 +4644,7 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
                     currentInvoiceNumOnFile = inv.invoiceNum;
                     setTextSafe_('invoiceModalTitle', `🧾 Invoice #${inv.invoiceNum} — Job #${jobNum}`);
                     (inv.lineItems || []).forEach(it => addInvoiceLineItem(it));
+                    document.getElementById('invHideOut').checked = !!inv.hideOutstanding;
                     document.getElementById('invWarrantyPeriod').value = inv.warrantyPeriod || '';
                     document.getElementById('invWarrantyNote').value = inv.warrantyNote || '';
                     document.getElementById('invWarrantySerial').value = inv.warrantySerial || '';
@@ -4653,6 +4656,7 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
                     if (inv.mobile) document.getElementById('invCustMobile').value = inv.mobile;
                 } else {
                     setTextSafe_('invoiceModalTitle', `🧾 New Invoice — Job #${jobNum}`);
+                    document.getElementById('invHideOut').checked = false;
                     addInvoiceLineItem(firstLineItemFromJob_(jobNum));
                 }
                 recalcInvoiceTotals();
@@ -4686,6 +4690,7 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
             notes: document.getElementById('invNotes').value.trim(),
             createdBy: techLabel,
             invoiceDate: document.getElementById('invDate').value,
+            hideOutstanding: document.getElementById('invHideOut').checked,
             customerName: document.getElementById('invCustName').value.trim(),
             mobile: document.getElementById('invCustMobile').value.trim()
         };
@@ -4876,8 +4881,8 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
         <div class="totals-box">
             <div class="totals-row total-row"><span>Total</span><span>${money(total)}</span></div>
             ${inv.isQuote ? (inv.validUntil ? `<div class="totals-row"><span>Valid Until</span><span>${esc(inv.validUntil)}</span></div>` : '') : `<div class="totals-row"><span>${esc(payLabel)}</span><span>${money(amountPaid)}</span></div>
-            <div class="totals-row balance-row"><span>Balance</span><span>${money(balance)}</span></div>
-            ${Number(inv.prevOutstanding || 0) > 0 ? `<div class="totals-row" style="color:#b91c1c; font-weight:800;"><span>Previous Outstanding</span><span>${money(inv.prevOutstanding)}</span></div>
+            ${inv.hideOutstanding ? '' : `<div class="totals-row balance-row"><span>Balance</span><span>${money(balance)}</span></div>`}
+            ${!inv.hideOutstanding && Number(inv.prevOutstanding || 0) > 0 ? `<div class="totals-row" style="color:#b91c1c; font-weight:800;"><span>Previous Outstanding</span><span>${money(inv.prevOutstanding)}</span></div>
             <div class="totals-row total-row"><span>Total Due</span><span>${money(balance + Number(inv.prevOutstanding))}</span></div>
             <div style="font-size:7.5px; color:#b91c1c; text-align:right;">Unpaid earlier bills: ${esc(inv.prevOutstandingRefs)}</div>` : ''}`}
         </div>
@@ -4946,7 +4951,7 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
     async function withPrevOutstanding_(inv) {
         try {
             const key = String(inv.mobile || '').replace(/\D/g, '').replace(/^0+/, '').replace(/^94/, '');
-            if (!key || inv.isQuote) return inv;
+            if (!key || inv.isQuote || inv.hideOutstanding) return inv;
             if (!allInvoicesList.length) {
                 const d = await fetch(`${WEB_APP_URL}?action=getInvoicesList`).then(r => r.json());
                 allInvoicesList = d.invoices || [];
@@ -5221,10 +5226,11 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
             cvBtn.style.display = '';
             cvBtn.innerText = q ? '➡️ Convert this Quotation to a Bill' : '📝 Create a Quotation from this Bill';
         } else { cvBtn.style.display = 'none'; }
-        ['cbPaidWrap', 'cbMethodWrap', 'cbBalRow'].forEach(id => document.getElementById(id).style.display = q ? 'none' : '');
+        ['cbPaidWrap', 'cbMethodWrap', 'cbBalRow', 'cbHideOutWrap'].forEach(id => document.getElementById(id).style.display = q ? 'none' : '');
         document.getElementById('cbValidWrap').style.display = q ? '' : 'none';
         document.getElementById('cbLines').innerHTML = '';
         document.getElementById('cbPaid').value = bill ? bill.amountPaid : 0;
+        document.getElementById('cbHideOut').checked = !!(bill && bill.hideOutstanding);
         document.getElementById('cbMethod').value = (bill && bill.paymentMethod) || 'Cash';
         document.getElementById('cbValid').value = (bill && bill.validUntil) || '';
         document.getElementById('cbNotes').value = (bill && bill.notes) || '';
@@ -5240,7 +5246,7 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
         const c = cbRecalc(); if (!c.items.length) { showToast('Add at least one line item.', 'error'); return; }
         const q = cbDocType === 'Quotation';
         const payload = { action: 'saveCustomBill', id: cbEditId, docType: cbDocType, customerName: document.getElementById('cbEditName').value.trim(), mobile: document.getElementById('cbEditMobile').value.trim(), invoiceDate: document.getElementById('cbDate').value,
-            lineItems: c.items, amountPaid: q ? 0 : c.paid, paymentMethod: document.getElementById('cbMethod').value,
+            lineItems: c.items, hideOutstanding: !q && document.getElementById('cbHideOut').checked, amountPaid: q ? 0 : c.paid, paymentMethod: document.getElementById('cbMethod').value,
             validUntil: document.getElementById('cbValid').value, warrantyPeriod: document.getElementById('cbWarPeriod').value, warrantyNote: document.getElementById('cbWarNote').value.trim(), warrantySerial: document.getElementById('cbWarSerial').value.trim(), notes: document.getElementById('cbNotes').value.trim(),
             createdBy: (document.getElementById('loggedInTechName') || {}).innerText || 'Admin' };
         fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) }).then(r => r.json()).then(d => {

@@ -1369,7 +1369,7 @@ body.dark-mode .bulk-item-row-header { color: #c7d2fe; }
             <div class="form-group" id="cbValidWrap"><label>Valid Until</label><input type="date" id="cbValid"></div>
         </div>
         <div class="row">
-            <div class="form-group"><label>Warranty Period</label><select id="cbWarPeriod"><option value="">No Warranty</option><option value="14 Days">14 Days</option><option value="03 Months">03 Months</option><option value="06 Months">06 Months</option><option value="01 Year">01 Year</option><option value="02 Years">02 Years</option><option value="03 Years">03 Years</option></select></div>
+            <div class="form-group"><label>Warranty Period</label><input type="text" id="cbWarPeriod" list="warPeriodList" placeholder="Select or type e.g. 45 Days" autocomplete="off"></div>
             <div class="form-group"><label>Warranty Covers</label><input type="text" id="cbWarNote" placeholder="e.g. Full Service &amp; Repair"></div>
             <div class="form-group"><label>Warranty S/No</label><input type="text" id="cbWarSerial" placeholder="Serial / IMEI"></div>
         </div>
@@ -1408,15 +1408,7 @@ body.dark-mode .bulk-item-row-header { color: #c7d2fe; }
         <div class="row" style="margin-top:14px;">
             <div class="form-group">
                 <label>Warranty Period</label>
-                <select id="invWarrantyPeriod" onchange="recalcInvoiceTotals()">
-                    <option value="">No Warranty</option>
-                    <option value="14 Days">14 Days</option>
-					<option value="03 Months">03 Months</option>
-					<option value="06 Months">06 Months</option>
-                    <option value="01 Year">01 Year</option>
-                    <option value="02 Years">02 Years</option>
-                    <option value="03 Years">03 Years</option>
-                </select>
+                <input type="text" id="invWarrantyPeriod" list="warPeriodList" placeholder="Select or type e.g. 45 Days" autocomplete="off" oninput="recalcInvoiceTotals()">
             </div>
             <div class="form-group">
                 <label>Warranty Covers</label>
@@ -4532,15 +4524,7 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
             <td><input type="number" min="0" step="1" class="li-qty" value="${qty}" oninput="recalcInvoiceTotals()"></td>
             <td class="line-amount-out">Rs. 0.00</td>
             <td>
-                <select class="li-warranty" onchange="recalcInvoiceTotals()">
-                    <option value="">No Warranty</option>
-                    <option value="14 Days">14 Days</option>
-                    <option value="03 Months">03 Months</option>
-                    <option value="06 Months">06 Months</option>
-                    <option value="01 Year">01 Year</option>
-                    <option value="02 Years">02 Years</option>
-                    <option value="03 Years">03 Years</option>
-                </select>
+                <input type="text" class="li-warranty" list="warPeriodList" placeholder="Select / type" autocomplete="off" style="width:100%;" oninput="recalcInvoiceTotals()">
             </td>
             <td><span class="invoice-line-remove" onclick="removeInvoiceLineItem('${id}')">✕</span></td>
         `;
@@ -5204,7 +5188,7 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
             <td><input type="number" min="0" step="0.01" class="cb-price" value="${it.price ?? ''}" oninput="cbRecalc()"></td>
             <td><input type="number" min="0" step="0.01" class="cb-disc" value="${it.discount ?? 0}" oninput="cbRecalc()"></td>
             <td><input type="number" min="0" step="1" class="cb-qty" value="${it.qty ?? 1}" oninput="cbRecalc()"></td>
-            <td class="cb-amt">Rs. 0.00</td><td><select class="cb-war" onchange="cbRecalc()"><option value="">No Warranty</option><option value="14 Days">14 Days</option><option value="03 Months">03 Months</option><option value="06 Months">06 Months</option><option value="01 Year">01 Year</option><option value="02 Years">02 Years</option><option value="03 Years">03 Years</option></select></td><td><span class="invoice-line-remove" onclick="document.getElementById('${id}').remove(); cbRecalc()">✕</span></td>`;
+            <td class="cb-amt">Rs. 0.00</td><td><input type="text" class="cb-war" list="warPeriodList" placeholder="Select / type" autocomplete="off" style="width:100%;" oninput="cbRecalc()"></td><td><span class="invoice-line-remove" onclick="document.getElementById('${id}').remove(); cbRecalc()">✕</span></td>`;
         document.getElementById('cbLines').appendChild(tr); tr.querySelector('.cb-war').value = it.warranty || ''; cbRecalc();
     }
     function cbRecalc() {
@@ -6971,5 +6955,14 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
 })();
 </script>
 
+<datalist id="warPeriodList">
+    <option value="14 Days"></option>
+    <option value="01 Month"></option>
+    <option value="03 Months"></option>
+    <option value="06 Months"></option>
+    <option value="01 Year"></option>
+    <option value="02 Years"></option>
+    <option value="03 Years"></option>
+</datalist>
 </body>
 </html>

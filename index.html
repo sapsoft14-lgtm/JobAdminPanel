@@ -4943,6 +4943,7 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
     // Finds unpaid balances on this customer's EARLIER bills (job invoices + custom bills,
     // quotations excluded) so the printed invoice can show "Previous Outstanding".
     async function withPrevOutstanding_(inv) {
+        return inv; // PREVIOUS-OUTSTANDING LOOKUP DISABLED (usage reduction): no extra getInvoicesList / getCustomerBills calls
         try {
             const key = String(inv.mobile || '').replace(/\D/g, '').replace(/^0+/, '').replace(/^94/, '');
             if (!key || inv.isQuote || inv.hideOutstanding) return inv;
@@ -5316,13 +5317,13 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
             if (document.visibilityState === 'visible' && isAutoSyncEnabled() && openAdminHistoryTracker === null) {
                 fetchLivePipelineData();
             }
-        }, 60000, 10000); // ~50-70s, randomized each cycle
+        }, 120000, 20000); // ~100-140s, randomized each cycle (log-ingestion fix)
 
         // Notifications are cheap but still paused while the tab is hidden,
         // and slowed from ~19-31s to ~35-55s.
         createJitteredPoller(() => {
             if (document.visibilityState === 'visible') fetchNotifications();
-        }, 45000, 10000); // ~35-55s, randomized each cycle
+        }, 120000, 20000); // ~100-140s, randomized each cycle (log-ingestion fix)
 
         // When the admin switches back to this tab after being away, refresh
         // once immediately (cheap — a single request) instead of waiting for
@@ -6933,6 +6934,7 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
 
     // ── startup (called from grantAccess) ────────────────────────────────────
     window.urgentAdminInit = function () {
+        return; // URGENT ORDERS DISABLED (usage reduction): no API calls, no polling, button stays hidden
         if (URG.started) return; URG.started = true;
         loadOrders(); loadTechs();
         if (isSA()) { const btn = $('urgReqBtn'); if (btn) btn.style.display = ''; }
@@ -6941,7 +6943,7 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
             if (document.visibilityState !== 'visible') return;
             loadOrders();
             if (isSA() || URG.techModalOpen) loadRequests();
-        }, 30000);
+        }, 90000); // was 30000 (log-ingestion fix)
     };
     window.urgCloseTech = closeTech;
     window.urgCloseReq = closeReq;
@@ -6949,6 +6951,7 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
 
     // Event delegation for the technician chart (rows are re-rendered often)
     document.addEventListener('click', (ev) => {
+        return; // URGENT ORDERS DISABLED
         const el = ev.target.closest('#techChartBars .urg-link'); if (!el) return;
         openTech(el.getAttribute('data-urg-tech'));
     });

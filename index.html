@@ -4703,12 +4703,17 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
 
                 // Mark this job's card as invoiced right away — don't wait for
                 // the next pipeline Sync to show the badge next to the button.
-                const cachedJobForInvoice = jobsCacheArray.find(j => j.jobNum === currentInvoiceJobNum);
+                // String compare: the Invoices tab passes the job number as text, the pipeline has it as a number.
+                const cachedJobForInvoice = jobsCacheArray.find(j => String(j.jobNum) === String(currentInvoiceJobNum));
                 if (cachedJobForInvoice) {
                     cachedJobForInvoice.hasInvoice = true;
                     cachedJobForInvoice.invoiceNum = data.invoiceNum;
-                    cachedJobForInvoice.invoicePaymentStatus = payload.paymentStatus;
+                    cachedJobForInvoice.invoicePaymentStatus = payload.paymentStatus || 'Unpaid';
+                    try { saveSessionSnapshot(PIPELINE_SNAPSHOT_KEY, jobsCacheArray); } catch (e) {}
                     renderPipelineTable();
+                } else {
+                    // Job not in the loaded list (filtered/stale) — reload it so the card shows the status.
+                    fetchLivePipelineData({ force: true });
                 }
 
                 // Auto-handover: reuses the same toggleHandoverStatus action the

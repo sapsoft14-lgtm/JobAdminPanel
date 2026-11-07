@@ -6972,5 +6972,144 @@ fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(requestBody) })
     <option value="02 Years"></option>
     <option value="03 Years"></option>
 </datalist>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     🕒 LIVE CLOCK + 🎂 BIRTHDAY LIST VIEW — front-end only add-on
+     Does not call or change any backend function. It reads the existing
+     TECHNICIAN_BIRTHDAYS list (defined in the birthday snippet above) and
+     injects a small clock + "Birthdays" button into the top session bar.
+     ══════════════════════════════════════════════════════════════════════ -->
+<style>
+    .sap-clock { display:flex; flex-direction:column; align-items:flex-end; line-height:1.15; padding:2px 10px; border-left:1px solid #e2e8f0; border-right:1px solid #e2e8f0; min-width:92px; }
+    .sap-clock-time { font-size:14px; font-weight:800; color:#1e3a8a; font-variant-numeric:tabular-nums; letter-spacing:0.3px; }
+    .sap-clock-date { font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; }
+    body.dark-mode .sap-clock { border-color:#334155; }
+    body.dark-mode .sap-clock-time { color:#93c5fd; }
+    body.dark-mode .sap-clock-date { color:#94a3b8; }
+
+    .btn-bday-list { background:#7c3aed; color:#fff; border:none; padding:7px 12px; border-radius:6px; cursor:pointer; font-weight:bold; font-size:13px; white-space:nowrap; position:relative; }
+    .btn-bday-list:hover { background:#6d28d9; }
+    .btn-bday-list .bl-dot { position:absolute; top:-5px; right:-5px; background:#f59e0b; color:#fff; font-size:10px; font-weight:800; min-width:16px; height:16px; line-height:16px; border-radius:8px; text-align:center; padding:0 3px; display:none; }
+
+    #bdayListOverlay { position:fixed; inset:0; z-index:9990; background:rgba(15,23,42,0.55); display:none; align-items:center; justify-content:center; padding:14px; }
+    #bdayListOverlay.show { display:flex; }
+    .bl-box { background:#fff; color:#1e293b; width:460px; max-width:100%; max-height:86vh; border-radius:14px; box-shadow:0 25px 70px rgba(0,0,0,0.4); display:flex; flex-direction:column; overflow:hidden; font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; }
+    .bl-head { display:flex; align-items:center; justify-content:space-between; padding:14px 18px; background:linear-gradient(135deg,#a18cd1,#7c3aed); color:#fff; }
+    .bl-head h3 { margin:0; font-size:16px; }
+    .bl-x { cursor:pointer; font-size:24px; line-height:1; padding:0 4px; }
+    .bl-tabs { display:flex; gap:6px; padding:10px 14px 0; }
+    .bl-tab { flex:1; padding:8px; border:1px solid #cbd5e1; background:#f8fafc; color:#475569; border-radius:8px; font-weight:700; font-size:12px; cursor:pointer; min-height:0 !important; }
+    .bl-tab.active { background:#7c3aed; border-color:#7c3aed; color:#fff; }
+    .bl-body { padding:10px 14px 16px; overflow-y:auto; }
+    .bl-month { font-size:11px; font-weight:800; text-transform:uppercase; color:#7c3aed; margin:12px 0 4px; letter-spacing:0.5px; }
+    .bl-row { display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:8px; border:1px solid #f1f5f9; margin-bottom:5px; background:#fff; }
+    .bl-row.today { background:linear-gradient(135deg,#fef3c7,#fce7f3); border-color:#fcd34d; }
+    .bl-date { min-width:48px; text-align:center; background:#ede9fe; color:#5b21b6; border-radius:8px; padding:4px 0; font-weight:800; font-size:12px; line-height:1.2; }
+    .bl-date b { display:block; font-size:16px; }
+    .bl-name { flex:1; font-weight:700; font-size:14px; }
+    .bl-when { font-size:11px; font-weight:800; color:#64748b; white-space:nowrap; }
+    .bl-row.today .bl-when { color:#b45309; }
+    .bl-empty { text-align:center; color:#94a3b8; padding:24px 0; font-size:13px; }
+    body.dark-mode .bl-box { background:#1e293b; color:#e2e8f0; }
+    body.dark-mode .bl-tab { background:#0f172a; border-color:#334155; color:#cbd5e1; }
+    body.dark-mode .bl-tab.active { background:#7c3aed; border-color:#7c3aed; color:#fff; }
+    body.dark-mode .bl-row { background:#0f172a; border-color:#334155; }
+    body.dark-mode .bl-row.today { background:#422006; border-color:#b45309; }
+    body.dark-mode .bl-date { background:#312e81; color:#c4b5fd; }
+    body.dark-mode .bl-when { color:#94a3b8; }
+</style>
+
+<div id="bdayListOverlay" onclick="closeBdayList()">
+    <div class="bl-box" onclick="event.stopPropagation()">
+        <div class="bl-head"><h3>🎂 Team Birthdays</h3><span class="bl-x" onclick="closeBdayList()">×</span></div>
+        <div class="bl-tabs">
+            <button type="button" class="bl-tab active" id="blTabUpcoming" onclick="renderBdayList('upcoming')">Upcoming</button>
+            <button type="button" class="bl-tab" id="blTabAll" onclick="renderBdayList('all')">All (by month)</button>
+        </div>
+        <div class="bl-body" id="bdayListBody"></div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    var MON_S  = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+
+    // ── Clock ───────────────────────────────────────────────────────────
+    function tickClock() {
+        var t = document.getElementById('sapClockTime'), d = document.getElementById('sapClockDate');
+        if (!t) return;
+        var now = new Date();
+        t.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+        d.textContent = now.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    // ── Birthday helpers (uses the existing TECHNICIAN_BIRTHDAYS array) ──
+    function list() {
+        var src = (typeof TECHNICIAN_BIRTHDAYS !== 'undefined') ? TECHNICIAN_BIRTHDAYS : [];
+        var today = new Date(); today.setHours(0, 0, 0, 0);
+        return src.map(function (p) {
+            var mm = parseInt(p.date.slice(0, 2), 10), dd = parseInt(p.date.slice(3, 5), 10);
+            var next = new Date(today.getFullYear(), mm - 1, dd);
+            if (next < today) next = new Date(today.getFullYear() + 1, mm - 1, dd);
+            return { name: p.name, mm: mm, dd: dd, days: Math.round((next - today) / 86400000) };
+        });
+    }
+    function whenText(n) { return n === 0 ? '🎉 Today!' : n === 1 ? 'Tomorrow' : 'in ' + n + ' days'; }
+    function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+    function rowHtml(p) {
+        return '<div class="bl-row' + (p.days === 0 ? ' today' : '') + '">' +
+            '<div class="bl-date">' + MON_S[p.mm - 1] + '<b>' + p.dd + '</b></div>' +
+            '<div class="bl-name">' + esc(p.name) + '</div>' +
+            '<div class="bl-when">' + whenText(p.days) + '</div></div>';
+    }
+
+    window.renderBdayList = function (mode) {
+        var body = document.getElementById('bdayListBody');
+        document.getElementById('blTabUpcoming').classList.toggle('active', mode === 'upcoming');
+        document.getElementById('blTabAll').classList.toggle('active', mode === 'all');
+        var all = list(), html = '';
+        if (!all.length) { body.innerHTML = '<div class="bl-empty">No birthdays added yet.</div>'; return; }
+        if (mode === 'upcoming') {
+            all.sort(function (a, b) { return a.days - b.days; });
+            html = all.slice(0, 10).map(rowHtml).join('');
+        } else {
+            all.sort(function (a, b) { return a.mm - b.mm || a.dd - b.dd; });
+            var cur = 0;
+            all.forEach(function (p) {
+                if (p.mm !== cur) { cur = p.mm; html += '<div class="bl-month">' + MONTHS[cur - 1] + '</div>'; }
+                html += rowHtml(p);
+            });
+        }
+        body.innerHTML = html;
+    };
+    window.openBdayList = function () { renderBdayList('upcoming'); document.getElementById('bdayListOverlay').classList.add('show'); };
+    window.closeBdayList = function () { document.getElementById('bdayListOverlay').classList.remove('show'); };
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeBdayList(); });
+
+    // ── Inject into the top session bar ─────────────────────────────────
+    function setup() {
+        var bar = document.getElementById('sessionBar');
+        var right = bar && bar.lastElementChild;
+        var clock = document.createElement('div');
+        clock.className = 'sap-clock';
+        clock.title = 'Current time';
+        clock.innerHTML = '<span class="sap-clock-time" id="sapClockTime">--:--:--</span><span class="sap-clock-date" id="sapClockDate"></span>';
+        var btn = document.createElement('button');
+        btn.type = 'button'; btn.className = 'btn-bday-list'; btn.title = 'View birthday list';
+        btn.innerHTML = '🎂 Birthdays <span class="bl-dot" id="blDot"></span>';
+        btn.onclick = openBdayList;
+        if (right) { right.insertBefore(btn, right.firstChild); right.insertBefore(clock, right.firstChild); }
+        else { clock.style.cssText += ';position:fixed;top:6px;right:10px;z-index:9000;background:#fff;border-radius:8px'; document.body.appendChild(clock); }
+        // small badge when someone has a birthday today
+        var todayCount = list().filter(function (p) { return p.days === 0; }).length;
+        var dot = document.getElementById('blDot');
+        if (dot && todayCount) { dot.textContent = todayCount; dot.style.display = 'block'; }
+        tickClock(); setInterval(tickClock, 1000);
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup); else setup();
+})();
+</script>
+<!-- ══════════════════════════════ END CLOCK + BIRTHDAY LIST ══════════════════════════════ -->
 </body>
 </html>
